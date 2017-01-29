@@ -14,8 +14,7 @@ Feedback is most appreciated. Please contact me at cmcfarl2 [at] stanford [dot] 
 
 WEBSITE
 -------
-Documentation and source code can be found at 
-[https://bitbucket.org/cdmcfarland/tuba-seq]
+Documentation and source code can be found at https://bitbucket.org/cdmcfarland/tuba-seq
 
 ## FILE MANIFEST
 ----------------
@@ -26,6 +25,14 @@ Often two versions of files exist: a base version and a version with an "_unadul
 
 Filters raw FASTQ files from deep sequencing using a template of the intended barcode setup. Outputs training files for *DADA2* estimation of error rates and clutering files for *DADA2* barcode clustering. Uses nwalign.pyx/nwalign.c for [Needleman-Wunsch](https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm) alignment of reads to the barcode template for filtering & trimming. 
 
+
+### DADA2_derep.R
+
+De-replicates training & clustering files for *DADA2*. Separating this first step from the algorithm saves space and time (when runs are repeated). 
+
+### DADA2_error_training.R
+
+Estimates a model of sequencing errors from the 
 
 ### postprocess.py
 
