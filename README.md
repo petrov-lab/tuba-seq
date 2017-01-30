@@ -19,7 +19,7 @@ Documentation and source code can be found at https://bitbucket.org/cdmcfarland/
 ## FILE MANIFEST
 ----------------
     
-Often two versions of files exist: a base version and a version with an "_unadulterated" suffix. Base versions are recommended for general use. Unadulterated versions fully replicate the findings presented in [Rodgers et al. (2017)](http://www.nature.com/nmeth/index.html). These versions do not differ meaningful, however we want to provide users a way to fully reproduce our published scientific findings, while also developing a generic pipeline that assimilates best practices as they evolve. Unadulterated versions are un-maintained. 
+Often two versions of files exist: a base version and a version with an "_unadulterated" suffix. Base versions are recommended for general use, while unadulterated versions replicate results published in [Rodgers et al. (2017)](http://www.nature.com/nmeth/index.html). Behavior of these two versions should remain similar, however we want to provide users a way to reproduce our published findings, while also developing a more generic pipeline that incorporates evolving best practices. Unadulterated versions are un-maintained. 
 
 ### preprocess.py
 
