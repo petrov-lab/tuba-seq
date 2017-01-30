@@ -4,9 +4,24 @@ Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rco
 
 ##OVERVIEW
 
-This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. 
+This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach.  
 
 ##INSTALLATION & USAGE
+
+While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. Both require Python 3.2 and R 3.2 or later (what a fun coincidence). _DADA2_ should install from **Bioconductor** as follows: 
+
+```
+#!R
+
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("dada2")
+## Other R packages used for summarizing output to install:
+biocLite("shortRead")
+biocLite("ggplot2")
+install.packages("ineq")
+```
+See [DADA2 Installation](https://benjjneb.github.io/dada2/dada-installation.html) for details. 
 
 ##CONTACT
 ---------
