@@ -1,6 +1,6 @@
 # TuBa-seq Analysis Pipeline #
 
-Command-line data analysis tools for tumor size profiling by TUmor-Barcoded deep sequencing. Please refer to our publication in [Nature Methods](http://www.nature.com/nmeth/index.html) for details. 
+Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rcoded deep sequencing. Please refer to our publication in [Nature Methods](http://www.nature.com/nmeth/index.html) for details. 
 
 ##OVERVIEW
 
