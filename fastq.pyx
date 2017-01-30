@@ -2,17 +2,6 @@ import pandas as pd
 from collections import OrderedDict
 import numpy as np
 cimport numpy as np
-cdef extern from "stdint.h":
-    int __builtin_popcountll(unsigned long long)
-
-DEF c_barcode_length = 15
-assert c_barcode_length <= 32, "barcodes are too long to hash."
-barcode_length = c_barcode_length
-
-cdef unsigned long i
-
-def csv_write(df, filename, compression='gzip', header=True, **kargs):
-    df.to_csv('{:}.{:}'.format(filename, compression if compression != 'gzip' else 'gz'), header=header, compression=compression, **kargs)
 
 class fastqDF(pd.DataFrame):
     essential_columns = ['header', 'DNA', 'QC']
@@ -83,8 +72,12 @@ class fastqDF(pd.DataFrame):
         if '__plus_sign__' not in self.columns:
             self.insert(2, '__plus_sign__', len(self)*['+'])
         filename = filename.split('.fastq')[0] + '.fastq'
-        csv_write(self, filename, columns=self.essential_columns[0:2] + ['__plus_sign__'] + self.essential_columns[2:], 
-                                       sep='\n', header=False, index=False)
+        self.to_csv(filename + '.gz', 
+                    columns=self.essential_columns[0:2] + ['__plus_sign__'] + self.essential_columns[2:], 
+                    compression='gzip',
+                    header=False,
+                    index=False,
+                    sep='\n')
             
 class logPrint(object):
     def __init__(self, filename):
@@ -133,13 +126,6 @@ def NW_fit(seq, ref, flanking_nucleotides_for_scoring):
     ref2 = ref[score_start:score_stop] 
     score = nwalign.score_alignment(ref2, seq2, **NW_kwargs)
     return start, stop, score
-    #return pd.Series([start, stop, score], 
-    #          index=['degen start', 'degen stop', 'score'])
-
-cdef unsigned long Ascii_C[256]
-cdef unsigned long [:] Ascii = Ascii_C
-Ascii[65], Ascii[67], Ascii[71], Ascii[84] = 0, 1, 2, 3 #ascii translation table: A -> 0, C -> 1, G -> 2, T -> 3
-Ascii[78] = 4      # N -> 4
 
 import re
 class singleMismatcher(object):
@@ -161,22 +147,6 @@ def hamming_distance(a, b):
     N = len(a)
     return round(N*hamming(np.fromiter(a, 'S1', N), np.fromiter(b, 'S1', N)))
 
-def barcode_hasher(uni_str):
-    ascii_s = uni_str.encode('ascii')
-    cdef char *s = ascii_s
-    cdef unsigned long i, out = 0
-    cdef unsigned long multiplier = 1
-    for i in range(c_barcode_length):
-        out += multiplier*Ascii[s[i]]
-        multiplier *= 4
-    return out
-
-Mutations_XOR = np.zeros(c_barcode_length*3, np.uint64)
-for i in range(c_barcode_length):
-    Mutations_XOR[i*3    ] = 0x01 << 2*i
-    Mutations_XOR[i*3 + 1] = 0x11 << 2*i
-    Mutations_XOR[i*3 + 2] = 0x10 << 2*i
-
 cdef double QC_map_C[256] 
 cdef double [:] QC_map = QC_map_C
 cdef double dp = 0.7943282347
@@ -197,18 +167,4 @@ def _expected_errors(QC):
             
         errors += QC_map[q_score]
     return errors
-
-def vectorize_DNA(char *seq, char *Qscore, np.ndarray[dtype=np.double_t, ndim=2] DNA_vector, int L):
-    cdef int i, nuc, q_score
-    cdef double P_favored, P_others
-    for i in range(L):
-        nuc = Ascii[<int>seq[i]]
-        if nuc == 4:
-            DNA_vector[i, 0], DNA_vector[i, 1], DNA_vector[i, 2], DNA_vector[i, 3] = 0.25, 0.25, 0.25, 0.25
-        else:
-            q_score = <int>Qscore[i]
-            P_favored = QC_map[q_score]
-            P_others = (1 - P_favored)*0.3333333333333
-            DNA_vector[i, 0], DNA_vector[i, 1], DNA_vector[i, 2], DNA_vector[i, 3] = P_others, P_others, P_others, P_others
-            DNA_vector[i, nuc] = P_favored
 

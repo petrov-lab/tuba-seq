@@ -31,7 +31,7 @@ b_ref = to_bytes(ref)
 _start, _stop, max_score = NW_fit(b_ref, b_ref, training_flank)
 _start, _stop, min_score = NW_fit(to_bytes( ref.replace('A', 'T').replace('G', 'C') ), to_bytes( ref.replace('T', 'A').replace('C', 'G') ), training_flank)
 X_score = np.linspace(min_score, max_score, num=params.hist_number)
-Y_score = np.zeros_like(X_score)
+Y_score = np.zeros_like(X_score[1:])
 
 min_align_score = max_score*params.min_align_score_frac
 
