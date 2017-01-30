@@ -4,9 +4,24 @@ Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rco
 
 ##OVERVIEW
 
-This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. 
+This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach.  
 
 ##INSTALLATION & USAGE
+
+While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. Both require Python 3.2 and R 3.2 or later (what a fun coincidence). _DADA2_ should install from **Bioconductor** as follows: 
+
+```
+#!R
+
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("dada2")
+## Other R packages used for summarizing output to install:
+biocLite("shortRead")
+biocLite("ggplot2")
+install.packages("ineq")
+```
+See [DADA2 Installation](https://benjjneb.github.io/dada2/dada-installation.html) for details. 
 
 ##CONTACT
 ---------
@@ -19,7 +34,7 @@ Documentation and source code can be found at https://bitbucket.org/cdmcfarland/
 ## FILE MANIFEST
 ----------------
     
-Often two versions of files exist: a base version and a version with an "_unadulterated" suffix. Base versions are recommended for general use. Unadulterated versions fully replicate the findings presented in [Rodgers et al. (2017)](http://www.nature.com/nmeth/index.html). These versions do not differ meaningful, however we want to provide users a way to fully reproduce our published scientific findings, while also developing a generic pipeline that assimilates best practices as they evolve. Unadulterated versions are un-maintained. 
+Often two versions of files exist: a base version and a version with an "_unadulterated" suffix. Base versions are recommended for general use, while unadulterated versions replicate results published in [Rodgers et al. (2017)](http://www.nature.com/nmeth/index.html). Behavior of these two versions should remain similar, however we want to provide users a way to reproduce our published findings, while also developing a more generic pipeline that incorporates evolving best practices. Unadulterated versions are un-maintained. 
 
 ### preprocess.py
 
