@@ -11,17 +11,16 @@ This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and
 While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. Both require Python 3.2 and R 3.2 or later (what a fun coincidence). _DADA2_ should install from **Bioconductor** as follows: 
 
 ```
-#!R
-
 ## try http:// if https:// URLs are not supported
 source("https://bioconductor.org/biocLite.R")
 biocLite("dada2")
 ## Other R packages used for summarizing output to install:
 biocLite("shortRead")
 biocLite("ggplot2")
-install.packages("ineq")
 ```
 See [DADA2 Installation](https://benjjneb.github.io/dada2/dada-installation.html) for details. 
+
+The python scripts leverage 
 
 ##CONTACT
 ---------
@@ -55,30 +54,4 @@ Consolidates *DADA2* clustering outputs. Annotates sgRNAs and DNA benchmarks, an
 
 ### final_processing.py
 
-Creates the final estimates of tumor sizes used in this study. These steps are application specific, and we have converged upon best practices for generic tuba-seq experiments. Mice are annotated by their germ-line genotype, their time of sacrifice, and by the viral pool used to initiate tumors. Viral infections not belonging to the intended pool used are removed (these are very rare events). Estimates any bias in PCR amplification that is correlated with the GC content of barcodes and subtracts this bias. 
-
-### What is this repository for? ###
-
-* Quick summary
-* Version
-* [This Method ](https://bitbucket.org/tutorials/markdowndemo)
-
-### How do I get set up? ###
-
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
-
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact
+Creates the final estimates of tumor sizes used in this study. These steps are application specific, and we have converged upon best practices for generic tuba-seq experiments. Mice are annotated by their germ-line genotype, their time of sacrifice, and by the viral pool used to initiate tumors. Viral infections not belonging to the intended pool used are removed (these are very rare events). Estimates any bias in PCR amplification that is correlated with the GC content of barcodes and subtracts this bias.
