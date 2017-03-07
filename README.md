@@ -4,7 +4,9 @@ Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rco
 
 ##OVERVIEW
 
-This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach.  
+This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. 
+
+![Tuba-seq Analysis Pipeline.png](https://bitbucket.org/repo/Mjxqa5/images/3965301605-Tuba-seq%20Analysis%20Pipeline.png) 
 
 ##INSTALLATION & USAGE
 
