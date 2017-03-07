@@ -6,8 +6,7 @@ Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rco
 
 This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. 
 
-![Tuba-seq Analysis Pipeline.png](https://bitbucket.org/repo/Mjxqa5/images/3965301605-Tuba-seq%20Analysis%20Pipeline.png) 
-
+![Tuba-seq Analysis Pipeline.png](https://bitbucket.org/repo/Mjxqa5/images/12810822-Tuba-seq%20Analysis%20Pipeline.png)
 ##INSTALLATION & USAGE
 
 While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. Both require Python 3.2 and R 3.2 or later (what a fun coincidence). _DADA2_ should install from **Bioconductor** as follows: 
