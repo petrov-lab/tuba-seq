@@ -1,66 +1,56 @@
-
-searches = 8
-E_value_threshold = 1e-10
-short_title = True
-multithread = True
-
-Local_BLASTX = True
+import pandas as pd
+import os
 
 # BLAST database
 from Bio.Blast import NCBIWWW, NCBIXML
-from Bio.Blast.Applications import NcbiblastnCommandline
 
-temp_fasta = 'temp.fasta'
-blast_xml = 'blast_results.xml'
+E_value_threshold = 1e-10
 
-
-import pandas as pd
-
-def BLASTn_search(seq):
-    results_handle = NCBIWWW.qblast("blastn", 'nt', seq, descriptions=2) #, hitlist_size=1)
+def web_BLASTn_search(seq, null_result=dict(e=pd.np.inf, title='No Match', bits=0, score=0, num_alignments=0, accession='n.a.')):
+    """Web-based BLASTn query of nucleotide sequence `seq` against nt database. 
+    Returns dictionary only of best match.
+    """
+    import warnings
+    warnings.warn("Web-based BLAST queries take a highly-variable length of time.")
+    try:
+        results_handle = NCBIWWW.qblast("blastn", 'nt', seq, hitlist_size=1)
+    except ValueError as err:
+        print("NCBI server rejected query. Will continue...")
+        return null_result
     blast_records = NCBIXML.parse(results_handle)
     blast_record = next(blast_records)              # Preformed only one BLAST search
-    description = blast_record.descriptions[0]   # Enforced as only 1 (using hitlist_size=1)
-    return description
+    des = blast_record.descriptions
+    return des[0].__dict__ if des else null_result 
 
-def sleuth_DNAs(DNAs):
-    counts = DNAs.value_counts()
-    top_hits = counts.nlargest(searches)
-    top_hits.name = 'reads'    
-    with open(temp_fasta, 'w') as f:
-        f.write('\n'.join(top_hits.index.values) + '\n')
+def local_BLASTn_searches(seqs, temp_fasta_file='temp.fasta', BLAST_xml_file='blast_results.xml'):
+    """BLAST+ based BLASTn query of iterable nucleotide sequences `seqs` against
+    nt database. Your local computer must have BLAST+ tools installed and the nt
+    database downloaded. Web-based searching avoids this problem and requires no
+    configuring, so I wouldn't use this function unless you are performing a lot 
+    of searches. This function is a wrapper around Biopython's BLAST tools. 
+    Ensure that the Bio.Blast.Applications.NcbiblastnCommandline class is working
+    properly before use. See:
 
-    blastx_cline = NcbiblastnCommandline(query=temp_fasta, db="nt", evalue=E_value_threshold, outfmt=5, out=blast_xml)
+http://biopython.org/DIST/docs/api/Bio.Blast.Applications.NcbiblastnCommandline-class.html
+
+    Returns pandas.DataFrame structure of each nucletoide sequence's best match.
+"""
+    from Bio.Blast.Applications import NcbiblastnCommandline
+    pd.Series(seqs).to_csv(temp_fasta_file, index=False)
+    blastx_cline = NcbiblastnCommandline(query=temp_fasta_file, db="nt", evalue=E_value_threshold, outfmt=5, out=BLAST_xml_file, num_threads=8)
     stdout, stderr = blastx_cline()
-    with open(blast_xml) as f:
+    os.remove(temp_fasta_file)
+    with open(BLAST_xml_file) as f:
         blast_records = list(NCBIXML.parse(f))
+    return pd.DataFrame([record.descriptions[0].__dict__ for record in blast_records if record.descriptions], index=seqs)
 
-    descriptions_df = pd.DataFrame([record.descriptions[0].__dict__ for record in blast_records], index=top_hits.index)
-    output = pd.merge([top_hits.to_frame(), descriptions_df], axis=1)
-    if short_title:
-        output['title'] = output['title'].apply(lambda s: s.split('|')[-1])
+def sleuth_DNAs(DNAs, local_blast=False):
+    """Uses NCBI's BLAST tools to sleuth all known nucleotides for the biological
+    origin of unexpected sequences. Returns pandas.DataFrame structure of found 
+    matches. 
+"""
+    output = pd.DataFrame(local_BLASTn_searches(DNAs) if local_blast else list(map(web_BLASTn_search, DNAs)), index=DNAs) 
+    output = output.query('e <= {:}'.format(E_value_threshold))
+    output['short_title'] = output['title'].apply(lambda s: s.split('|')[-1])
     return output
-
-
-
-def sleuth_DNAs(DNAs):
-    counts = DNAs.value_counts()
-    top_hits = counts.nlargest(searches)
-    top_hits.name = 'reads'    
-    if multithread:
-        from multiprocessing import Pool
-        with Pool(processes=min(searches, 999)) as p:
-            descriptions = p.map(BLASTn_search, top_hits.index.values)
-    else:
-        descriptions = map(BLASTn_search, top_hits.index.values)
-    description_df = pd.DataFrame([des.__dict__ for des in descriptions], index=top_hits.index)
-
-    merged = pd.merge([top_hits.to_frame(), description_df], axis=1)
-    output = merged.query("expect <= {:}".format(E_value_threshold))
-    if short_title:
-        output['title'] = output['title'].apply(lambda s: s.split('|')[-1])
-    return output
-
-_start, _stop, max_score = NW_fit(b_ref, b_ref, training_flank)
-_start, _stop, min_score = NW_fit(to_bytes( ref.replace('A', 'T').replace('G', 'C') ), to_bytes( ref.replace('T', 'A').replace('C', 'G') ), training_flank)
 

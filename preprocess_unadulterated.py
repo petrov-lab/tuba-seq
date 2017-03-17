@@ -3,52 +3,47 @@ import numpy as np
 import re
 import os
 import argparse
-from fastq import fastqDF, singleMismatcher 
-from params import master_read, head, tail, core_length
-
+import params
+from tuba_seq import fastq
 
 ############### Input Parameters that will be retained ########################
 
-from params import cluster_flank, training_flank, maxEE, allowable_deviation, preprocessed, training, fastq_handle
-#cluster_flank = 7           # Parameters used in Rogers et al; subject to change
-#training_flank = 17
+#from params import cluster_flank, training_flank, maxEE, allowable_deviation, preprocessed, training, fastq_handle
+cluster_flank = 7           # Parameters used in Rogers et al; subject to change
+training_flank = 17
 
 ############### Input Parameters that will be deprecated ######################
 
 kmers = 2                   # Number of kmer searches used to find the beginning and end of double-barcodes
 match_len = 6               # Length of each kmer
-symmetric_immediate_truncation_of_read = slice(len(head) - len(tail), len(master_read)) # Unused sections of reads are immediately truncated to accelerate processing. 
+symmetric_immediate_truncation_of_read = slice(len(params.head) - len(params.tail), len(params.master_read)) # Unused sections of reads are immediately truncated to accelerate processing. 
                                                                                         # This truncation assumes len(head) > len(tail)
-from logPrint import logPrint                                                           # Currently, output goes to stdout and a log file; this will change
-Log = logPrint('preprocessing_Log.txt')                                                 
+Log = fastq.logPrint('preprocessing_Log.txt')                                                 
 ###############################################################################
 
-truncated_master_read = master_read[symmetric_immediate_truncation_of_read]
-cluster_distance_from_start = core_length + cluster_flank
+truncated_master_read = params.master_read[symmetric_immediate_truncation_of_read]
+cluster_distance_from_start = params.core_length + cluster_flank
 
 parser = argparse.ArgumentParser(description="Prepare FASTQ files for DADA training & clustering.")
-parser.add_argument("--base_dir", type=str, help='Base directory to work within. This directory must contain a folder entitled "original" containing all FASTQ files to process.', default=os.getcwd())
+parser.add_argument("--base_dir", type=str, help='Base directory to work within. This directory must contain a folder entitled "{:}" containing all FASTQ files to process.'.format(params.original_dir), default=os.getcwd())
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
-parser.add_argument('-p', '--parallel', action='store_true', help='Parallelize operation')
+parser.add_argument('-p', '--parallel', action='store_true', help='Multithreaded operation')
 args = parser.parse_args()
 base_dir = args.base_dir.rstrip('/')
 os.chdir(base_dir)
 
-try: 
-    import pmap
-except ImportError:
-    if args.parallel:
-        print("Cannot import 'multiprocessing' module. Parallelization not possible.")
-else:
-    if args.parallel:
-        map = pmap.pmap
+if args.verbose and args.parallel:
+    print("Verbose output is incompatible with parallel operation. Will use single thread...")
+    args.parallel = False
 
-sg_info = pd.read_csv(args.sgRNA_file)
-for Dir in [preprocessed, training]:
+if args.parallel:
+    from tuba_seq.pmap import pmap as map
+
+for Dir in [params.preprocessed_dir, params.training_dir]:
     if not os.path.exists(Dir):
         os.makedirs(Dir)
 
-files = list(filter(lambda fn: fastq_handle in fn, os.listdir('original/')))
+files = list(filter(lambda fn: params.fastq_handle in fn, os.listdir(params.original_dir)))
 
 Log('Processing {:} Files in {:}/original/.'.format(len(files), base_dir))
 
@@ -62,16 +57,17 @@ def easy_N_fixes(DNA, searcher=re.compile('(...N...)'), maxN=3):
         return DNA
 
 offsets = match_len*np.arange(kmers)
-head_matchers = [singleMismatcher(head[-i-match_len:][:match_len]) for i in offsets]
-tail_matchers = [singleMismatcher(tail[i:i+match_len]) for i in offsets]
+head_matchers = [fastq.singleMismatcher(params.head[-i-match_len:][:match_len]) for i in offsets]
+tail_matchers = [fastq.singleMismatcher(params.tail[i:i+match_len]) for i in offsets]
     
-start_expected = min(len(head), len(tail))
-stop_expected = start_expected + core_length
+start_expected = min(len(params.head), len(params.tail))
+stop_expected = start_expected + params.core_length
 
 def process_file(f):
-    short_f = f.split(fastq_handle)[0]
-    df = fastqDF('original/'+f, symmetric_immediate_truncation_of_read)
-    degen = df.isDegenerate()
+    df = fastq.fastqDF.from_file('original/'+f).drop_Illumina_filter().co_slice(symmetric_immediate_truncation_of_read)
+    
+    short_filename = f.split(params.fastq_handle)[0]
+    degen = df['DNA'].str.contains("N")
     problems = df.loc[degen, 'DNA']
     df.loc[degen, 'DNA'] = problems.apply(easy_N_fixes)
 
@@ -79,25 +75,24 @@ def process_file(f):
     tails = [df['DNA'].apply(func.find) for func in tail_matchers]
    
     starts = heads[0] + match_len
-    wrong_starts = (starts - start_expected).abs() > allowable_deviation
+    wrong_starts = (starts - start_expected).abs() > params.allowable_deviation
     initial_wrongs = wrong_starts.sum()
     starts[wrong_starts] = heads[1][wrong_starts] + match_len*2
-    wrong_starts = (starts - start_expected).abs() > allowable_deviation
+    wrong_starts = (starts - start_expected).abs() > params.allowable_deviation
     final_wrongs = wrong_starts.sum()
     stops = tails[0]
-    wrong_stops = (stops - stop_expected).abs() > allowable_deviation
-    truncated_degen = ((stops > starts) & (stop_expected - stops > allowable_deviation)).sum()
+    wrong_stops = (stops - stop_expected).abs() > params.allowable_deviation
+    truncated_degen = ((stops > starts) & (stop_expected - stops > params.allowable_deviation)).sum()
     
     if args.verbose:
         Log("{:.1%} of reads had truncated/missing sgIDs & barcodes.".format(truncated_degen/len(df)))
     
     initial_wrongs += wrong_stops.sum() 
     stops[wrong_stops] = tails[1][wrong_stops] - match_len
-    wrong_stops = (stops - stop_expected).abs() > allowable_deviation
+    wrong_stops = (stops - stop_expected).abs() > params.allowable_deviation
     final_wrongs += wrong_stops.sum()
-    keep = -(wrong_starts | wrong_stops)
-    passed_kmers = df.loc[keep, :]
-    passed_kmers.__class__ = fastqDF
+    keep = ~(wrong_starts | wrong_stops)
+    passed_kmers = df.select_reads(keep)
 
     if args.verbose:
         Log('{:.1%} passed kmer tests.'.format(len(passed_kmers)/len(df)))
@@ -105,9 +100,8 @@ def process_file(f):
     starts = starts[keep]
     stops = stops[keep]
 
-    was_not_degen = -passed_kmers['QC'].str.contains('#')
-    train = passed_kmers.loc[was_not_degen, :]
-    train.__class__ = fastqDF
+    was_not_degen = ~passed_kmers['QC'].str.contains('#')
+    train = passed_kmers.select_reads(was_not_degen)
     
     if args.verbose:
         Log('Error training will use {:.1%} of remaining reads.'.format(len(train)/len(passed_kmers)))
@@ -115,24 +109,20 @@ def process_file(f):
     train_starts = starts[was_not_degen].apply(lambda start: slice(start-training_flank, start))
     train_stops  =  stops[was_not_degen].apply(lambda stop:  slice(stop, stop + training_flank))
 
-    train = train.vslice(train_starts, train_stops, enforce=True) 
-    train.write(training+f)
+    train = train.vector_slice(train_starts, train_stops).drop_abnormal_lengths() 
+    train.write(params.training_dir+f)
 
     slices = starts.apply(lambda start: slice(start - cluster_flank, start + cluster_distance_from_start))
-    sliced = passed_kmers.vslice(slices, enforce=True)
+    sliced = passed_kmers.vector_slice(slices).drop_abnormal_lengths()
 
-    cluster = sliced.loc[-sliced.isDegenerate(), :]
-    cluster.__class__ = fastqDF
-    cluster.drop_abnormal_lengths()
+    cluster = (sliced.drop_degenerate()
+                     .drop_abnormal_lengths())
     
-    try:
-        clean, EEs = cluster.expected_errors(maxEE=maxEE)
-    except ValueError as e:
-        print(short_f, 'had an invalid Q score.')
-        raise e
+    EEs = cluster.expected_errors()
+    clean = cluster.select_reads(EEs <= params.maxEE)
 
         #OUTPUT
-    clean.write(preprocessed+('{short_f}.fastq'.format(**locals())))
+    clean.write(params.preprocessed_dir+('{short_filename}.fastq'.format(**locals())))
     
     counts = dict(saved = initial_wrongs - final_wrongs,
                   reads = len(df),
@@ -141,20 +131,21 @@ def process_file(f):
                   clean = len(clean),
               truncated = truncated_degen,
             good_flanks = len(passed_kmers)+truncated_degen,
-                    EEs = EEs)
+                    EEs = EEs.sum())
 
     reads = counts['reads']
     percents = {k:v/reads for k, v in counts.items()}
-    Log("{:} ({:.2}M reads): {good_flanks:.0%} good flanks, {clean:.0%} used, {unknown_IDs:.0%} unknown sgIDs. Estimated Error Rate: {:.3%}.".format(short_f, reads*1e-6, EEs/len(clean)/(core_length + 2*cluster_flank), **percents))
+    percents['EE_rate'] = counts['EEs']/(len(clean)*len(clean['DNA'].values[0]))
+    Log("{:} ({:.2}M reads): {good_flanks:.0%} good flanks, {clean:.0%} used. Estimated Error Rate: {EE_rate:.3%}.".format(short_filename, reads*1e-6, **percents))
     return counts
 
 all_output = map(process_file, files)
-output_df = pd.DataFrame(all_output)
+output_df = pd.DataFrame(list(all_output), index=files)
 
 totals = output_df.sum()
 
 reads = totals['reads']
-mean_error_rate = totals.pop('EEs')/totals['clean']/(core_length + 2*cluster_flank)
+mean_error_rate = totals.pop('EEs')/totals['clean']/(params.core_length + 2*cluster_flank)
 
 percents = {k:v/reads for k, v in totals.items()}
 
@@ -168,7 +159,7 @@ Processed {:.2}M Reads.
 {clean:.1%} had <= {maxEE:g} expected errors and the average Error Rate was {error_rate:.4%}.
 """.format( base_dir, 
             reads*1e-6, 
-            maxEE=maxEE,
+            maxEE=params.maxEE,
             error_rate=mean_error_rate,
             **percents))
 Log.close()

@@ -2,8 +2,12 @@
 from distutils.core import setup
 from Cython.Build import cythonize
 
-scripts = ['fastq.pyx', 'nwalign.pyx']
+setup_kwargs = dict(name='tuba_seq',
+                    description='Tools for tuba_seq analysis pipeline.',
+                    author='Christopher McFarland',
+                    author_email='christopherdmcfarland@gmail.com',
+#                    url=#'https://www.python.org/sigs/distutils-sig/',
+                    version='1.0')
 
-for script in scripts:
-    short = script.split('.')[0]
-    setup(name=short, ext_modules=cythonize(script))
+setup(packages=['tuba_seq'], **setup_kwargs)
+setup(ext_modules=cythonize('tuba_seq/*.pyx'), **setup_kwargs)
