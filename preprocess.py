@@ -47,6 +47,16 @@ cluster_flank = params.cluster_flank
 def NW_fit_ref(seq):
     return NW_fit(to_bytes(seq), b_ref, training_flank)
 
+def save_reads(df, directory, sample):
+    filename = os.path.join(directory, sample)
+    df.write(filename, compression=None if args.derep else 'gzip')
+    if args.derep:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore") 
+            derep = dada2.derepFastq(filename+fastqDF.fastq_handle, verbose=args.verbose)
+        R_base.saveRDS(derep, file=filename+'.RData')
+        os.remove(filename+fastqDF.fastq_handle)
+
 _start, _stop, max_score = NW_fit(b_ref, b_ref, training_flank)
 _start, _stop, min_score = NW_fit(to_bytes( ref.replace('A', 'T').replace('G', 'C') ), to_bytes( ref.replace('T', 'A').replace('C', 'G') ), training_flank)
 
@@ -88,58 +98,19 @@ def run(filename):
     reasonable_fits = NW_fits.query("aligned and abs(stop - start - {0.barcode_length}) <= {0.allowable_deviation}".format(params))
     reasonable_DNAs = frozenset(reasonable_fits.index.values.tolist())
     reasonable = gb.filter(lambda data: data.name in reasonable_DNAs )
+    starts = NW_fits.loc[reasonable['DNA'], 'start'].astype(np.int16).values
+    stops =  NW_fits.loc[reasonable['DNA'], 'stop' ].astype(np.int16).values
 
-    #heads
-    #barcodes
-    #tails
-    #fake_header
+    training_reads = reasonable.vector_slice([starts - training_flank, starts],
+                                second_slice=[stops , stops  + training_flank])
 
-
-    def training_trim(df):
-        DNA = df['DNA'].values[0]
-        start = reasonable_fits.loc[DNA, 'start']
-        stop = reasonable_fits.loc[DNA, 'stop']
-        left_slice = slice(start - training_flank, start)
-        right_slice = slice(stop, stop + training_flank)
-        df['DNA'] = DNA[left_slice]+DNA[right_slice]
-        left_qc = df['QC'].str.slice(left_slice.start, left_slice.stop)
-        right_qc = df['QC'].str.slice(right_slice.start, right_slice.stop)
-        df['QC'] = left_qc.str.cat(right_qc) 
-        return df
-
-    def clustering_trim_and_repair(df):
-        DNA = df['DNA'].values[0]
-        start = reasonable_fits.loc[DNA, 'start']
-        if 'N' in DNA:
-            DNA = repair_N(to_bytes(DNA), b_ref)
-
-        slicer = slice(start - cluster_flank, start + params.barcode_length + cluster_flank)
-        df['DNA'] = DNA[slicer]
-        df['QC'] = df['QC'].str.slice(slicer.start, slicer.stop)
-        return df
-   
-    def trim_reads(gb, trim_function):          
-        dfs = [df for _dna, df in gb]                                       # Using map function instead of apply for parallelization 
-        trimed_df = fastqDF(pd.concat(list(map(trim_function, dfs))))       
-        return trimed_df.drop_degenerate().drop_abnormal_lengths()
-
-    def save_reads(df, directory):
-        filename = os.path.join(directory, sample)
-        df.write(filename, compression=None if args.derep else 'gzip')
-        if args.derep:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore") 
-                derep = dada2.derepFastq(filename+fastqDF.fastq_handle, verbose=args.verbose)
-            R_base.saveRDS(derep, file=filename+'.RData')
-            os.remove(filename+fastqDF.fastq_handle)
-
-    next_gb = reasonable.groupby("DNA")
+    save_reads(training_reads.drop_degenerate().drop_abnormal_lengths(), params.training_dir, sample)
     
-    save_reads(trim_reads(next_gb, training_trim), params.training_dir)
-    cluster_df = trim_reads(next_gb, clustering_trim_and_repair) 
+    reasonable['DNA'] = reasonable['DNA'].apply(lambda dna: repair_N(to_bytes(dna), b_ref) if 'N' in dna else dna)
+    cluster_df = reasonable.vector_slice([starts - cluster_flank, starts + params.barcode_length + cluster_flank]).drop_degenerate().drop_abnormal_length()
     EEs = cluster_df.expected_errors()
     cluster_df = cluster_df.select_reads(EEs <= params.maxEE)
-    save_reads(cluster_df, params.preprocessed_dir) 
+    save_reads(cluster_df, params.preprocessed_dir, sample) 
 
     init_reads = len(start)
     tally = {'Clustered Reads'  : len(cluster_df), 
