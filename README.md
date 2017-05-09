@@ -2,7 +2,7 @@
 
 Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rcoded deep sequencing. Please refer to our publication in [Nature Methods](http://www.nature.com/nmeth/index.html) for details. 
 
-**Currently, the "Unadulterated" version is working, while the base version is _incomplete_.**
+**Currently, the "Unadulterated" version is working, while the base version is _incomplete_. This pipeline and its installation and usage will be simplified in the coming months.**
 
 ##OVERVIEW
 
@@ -23,7 +23,12 @@ biocLite("ggplot2")
 ```
 See [DADA2 Installation](https://benjjneb.github.io/dada2/dada-installation.html) for details. 
 
-The python scripts leverage 
+A pip installer for the python package is pending. For now, dependencies can be met with the following command: 
+
+```
+pip3 install numpy scipy pandas rpy2 matplotlib biopython
+```
+
 
 ##CONTACT
 ---------
@@ -31,7 +36,8 @@ Feedback is most appreciated. Please contact me at cmcfarl2 [at] stanford [dot] 
 
 WEBSITE
 -------
-Documentation and source code can be found at https://bitbucket.org/cdmcfarland/tuba-seq
+Documentation and source code can be found at https://github.com/petrov-lab/tuba-seq
+
 
 ## FILE MANIFEST
 ----------------
