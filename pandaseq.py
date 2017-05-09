@@ -8,10 +8,11 @@ forward_file_glob = "raw/stacked/forward/{sample}.fastq*"
 reverse_file_glob = "raw/stacked/reverse/{sample}.fastq*"
 
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
-parser.add_argument('-p', '--parallel', action='store_true', help='Multithreaded operation')
 parser.add_argument('-L', '--log', action='store_true', help='Log output')
 args = parser.parse_args()
 
+#algorithm = 'stitch'        
+algorithm = 'simple_bayesian'
 os.makedirs(panda_seq['merge_dir'], exist_ok=True)
 
 def collect_sample_dict(file_glob, glob_chars='?*\[\]'):
@@ -43,8 +44,6 @@ else:
 map_params_to_pandaseq_option = dict(
                     l='min_length',       # Minimum length for a sequence.
                     t='threshold',        # The minimum probability that a sequence must have to assemble and, if used, match a primer.
-                    p='forward_primer',
-                    q='reverse_primer',
                     O='min_overlap')      # Minimum overlap region length for a sequence. (0 to use read length.)
 
 extra_params = {s:panda_seq[param_name] for s, param_name in map_params_to_pandaseq_option.items()}
@@ -56,7 +55,7 @@ def merge_files(sample, forward_file, reverse_file, cmd='pandaseq'):
                     r=reverse_file,
                     W=panda_seq['merge_dir']+sample+'.fastq.bz2',
                     T=CPUs,
-                    A='simple_bayesian')# algorithm:parameters	Select the algorithm to use for overlap selection and scoring.
+                    A=algorithm)# algorithm:parameters	Select the algorithm to use for overlap selection and scoring.
     options.update(extra_params)
     if args.log:
         options['G'] = sample+'.LOG.bz2'
@@ -67,11 +66,9 @@ def merge_files(sample, forward_file, reverse_file, cmd='pandaseq'):
 for sample, forward_file in forward_files.items():
     if sample in reverse_files:
         output = merge_files(sample, forward_file, reverse_files[sample]) 
-        if not args.log:
-            statlines = output[1].splitlines()[-11:-1]
-            stats = {name:int(count) for __, __, name, count in map(lambda b: b.decode('ascii').split('\t'), statlines)} 
-            print("Merged {:.1%} of {:.1}M reads in sample {:}.".format(stats['OK']/stats['READS'], stats['READS']*1e-6, sample))
-
-        stats = {line.partition for line in statlines}
+        #if not args.log:
+            #statlines = output[1].splitlines()[-8:-1]
+            #stats = {name:int(count) for __, __, name, count in map(lambda b: b.decode('ascii').split('\t'), statlines)} 
+            #print("Merged {:.1%} of {:.1}M reads in sample {:}.".format(stats['OK']/stats['READS'], stats['READS']*1e-6, sample))
     else:
         print("Could not find a reverse FASTQ for", forward_file)

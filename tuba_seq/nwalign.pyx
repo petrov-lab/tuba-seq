@@ -96,7 +96,6 @@ def global_align(unsigned char[:] seqj, unsigned char[:] seqi, int gap_open=-1, 
     ('COELANCANTH', '-PEL-ICAN--')
 
     """
-
     cdef bint flip = 0
 
 #    cdef char* seqj = _seqj
@@ -245,6 +244,6 @@ def global_align(unsigned char[:] seqj, unsigned char[:] seqi, int gap_open=-1, 
     #    return (<object>aj)[::-1], (<object>ai)[::-1] #, score.max()
     align_counter += 1
     #return (align_i[align_counter:].tostring().decode('ascii'), align_j[align_counter:].tostring().decode('ascii') ) if flip else (align_j[align_counter:].tostring().decode('ascii'), align_i[align_counter:].tostring().decode('ascii') )
-    return (align_i[align_counter:].tostring(), align_j[align_counter:]) if flip else (align_j[align_counter:], align_i[align_counter:] )
+    return (align_i[align_counter:], align_j[align_counter:]) if flip else (align_j[align_counter:], align_i[align_counter:] )
     #return (align_i[align_counter:].tostring(), align_j[align_counter:].tostring() ) if flip else (align_j[align_counter:].tostring(), align_i[align_counter:].tostring() )
 

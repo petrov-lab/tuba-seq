@@ -1,14 +1,13 @@
 import pandas as pd
-import numpy as np
 import os, argparse
-from tuba_seq.fastq import fastqDF, NW_fit, repair_N, to_bytes
+from tuba_seq.fastq import fastqDF, repair_N, find_start_stop, nw
 from tuba_seq.shared import logPrint
 from tuba_seq.blast import sleuth_DNAs
 import params
 from rpy2.robjects.packages import importr
-from rpy2.robjects.pandas2ri import py2ri, ri2py
+from collections import defaultdict
+from Bio.Seq import Seq
 import warnings
-from memory_profiler import profile
 
 ############### Input Parameters ########################
 
@@ -22,7 +21,7 @@ parser.add_argument('-d', '--derep', action='store_true', help='De-replicate out
 parser.add_argument('-f', '--fraction', type=float, default=0.05, help='Minimum fraction of total reads to elicit a BLAST-search of an unknown sequence.')
 parser.add_argument('-m', '--merged', action='store_true', help='Use merged reads in panda_seq.merge_dir.')
 HISTOGRAM_BINS = 30
-
+COMPRESSION = 'bz2'
 ###############################################################################
 
 args = parser.parse_args()
@@ -31,114 +30,122 @@ os.chdir(args.base_dir)
 dada2 = importr("dada2")
 R_base = importr('base')
 
+fastq_ext = params.fastq_handle
+if not args.derep:
+    if COMPRESSION == 'gzip':
+        from gzip import open       # We don't need to specify binary mode...it will automatically assume.    
+        fastq_ext += '.gz'
+    elif COMPRESSION == 'bz2':
+        from bz2 import open
+        fastq_ext += '.bz2'
+
 if args.parallel:
-    from tuba_seq.pmap import pmap as map 
+    from tuba_seq.pmap import low_memory_pmap as map 
 
-immediate_truncation = slice(max(0, len(params.head) - params.alignment_flank), 
-                             min(len(params.master_read), len(params.head) + params.barcode_length + params.alignment_flank ))
+ref = params.master_read.replace('.', 'N')
 
-ref = params.master_read[immediate_truncation].replace('.', 'N')
-
-b_ref = to_bytes(ref)
+c_ref = ref.encode('ascii')
 
 training_flank = params.training_flank
 cluster_flank = params.cluster_flank
+alignment_flank = params.alignment_flank
 
-def NW_fit_ref(seq):
-    return NW_fit(to_bytes(seq), b_ref, training_flank)
+c_ref_scoring = c_ref[len(params.head) - alignment_flank:len(params.head) + params.barcode_length + alignment_flank]
 
-def save_reads(df, directory, sample):
-    filename = os.path.join(directory, sample)
-    df.write(filename, compression=None if args.derep else 'gzip')
-    if args.derep:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore") 
-            derep = dada2.derepFastq(filename+fastqDF.fastq_handle, verbose=args.verbose)
-        R_base.saveRDS(derep, file=filename+'.RData')
-        os.remove(filename+fastqDF.fastq_handle)
-
-_start, _stop, max_score = NW_fit(b_ref, b_ref, training_flank)
-_start, _stop, min_score = NW_fit(to_bytes( ref.replace('A', 'T').replace('G', 'C') ), to_bytes( ref.replace('T', 'A').replace('C', 'G') ), training_flank)
-
-X_score = np.linspace(min_score, max_score, num=HISTOGRAM_BINS)
-Y_score = np.zeros_like(X_score[1:])
+max_score = nw.char_score(c_ref_scoring, c_ref_scoring)
+opposite_ref_scoring = str(Seq(c_ref_scoring.decode('ascii')).complement())
+min_score = nw.char_score(c_ref_scoring, opposite_ref_scoring.encode('ascii'))
 
 min_align_score = max_score*params.min_align_score_frac
 
 os.makedirs(params.preprocessed_dir, exist_ok=True)
 os.makedirs(params.training_dir, exist_ok=True)
 
-input_dir = params.panda_seq['merge_dir'] if args.merged else params.original_dir
+input_dir = params.merge_params['merge_dir'] if args.merged else params.original_dir
 
-files = [f for f in os.listdir(input_dir) if params.fastq_handle in f]
+files = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if params.fastq_handle in f]
+
+def process_read_set(QCs, read_constructor, training_file, cluster_file):
+    dna = QCs.index.values[0]
+    c_dna = dna.encode('ascii')
+    start, stop = find_start_stop(c_dna, c_ref)
+    c_dna_scoring = c_dna[start - params.alignment_flank:stop + params.alignment_flank]
+    score = nw.char_score(c_dna_scoring, c_ref_scoring)
+    if args.merged and params.compress_PHRED:
+        QCs = QCs.str.translate(params.PHRED_compressor)
+    
+    if score < min_align_score:
+        return 'PhiX' if dada2.isPhiX(c_dna)[0] else 'Unaligned', score
+    if abs((stop - start) - params.barcode_length) > params.allowable_deviation:
+        return 'Wrong Barcode Length', score
+    training_DNA = dna[start - training_flank:start]+dna[stop:stop + training_flank]
+    if 'N' not in training_DNA and len(training_DNA) == 2*training_flank:
+        training_QCs =  QCs.str.slice(start - training_flank, start).str.cat(
+                        QCs.str.slice(stop, stop + training_flank))
+        training_file.write(read_constructor(training_DNA, training_QCs)) 
+    if 'N' in dna:
+        dna = repair_N(c_dna, c_ref)
+    cluster_DNA = dna[start - cluster_flank:start + params.barcode_length + cluster_flank]
+    if 'N' not in cluster_DNA and len(cluster_DNA) == (params.barcode_length + 2*cluster_flank):
+        cluster_file.write(read_constructor(cluster_DNA, 
+                                            QCs.str.slice(start - cluster_flank, start + params.barcode_length + cluster_flank)))
+        return 'Clustered', score
+    else:
+        return 'Residual N' if 'N' in cluster_DNA else 'Insufficient Flank', score
 
 Log = logPrint(verbose=args.verbose)
 Log('Processing {:} samples found in {:}.'.format(len(files), os.path.join(args.base_dir, input_dir)), print_line=True)
-summary = {}
-unknown_DNAs = {}
 
-#for filename in files:
-@profile
-def run(filename):
-    basename = os.path.basename(filename)
-    sample = basename.split('.')[0]
-    start = fastqDF.from_file('original/'+filename).drop_Illumina_filter()
-    info = start.fastq_info()
-    
-    df = start.co_slice(immediate_truncation).drop_abnormal_lengths()
-    gb = df.groupby('DNA')
-    DNAs = pd.Series(list(gb.groups.keys()))
-    isPhiX = ri2py(dada2.isPhiX(py2ri(DNAs))).astype(bool)
-    no_phiX = DNAs.loc[~isPhiX]
-    NW_fits = pd.DataFrame(dict(zip(no_phiX, map(NW_fit_ref, no_phiX))), index=['start', 'stop', 'score']).T
-    NW_fits['abundance'] = gb['DNA'].count()
+def process_sample(filename):
+    reads = fastqDF.from_file(filename, fake_header=True, use_Illumina_filter=True)
+    info = reads.info
+    sample = info['Sample']
+    init_reads = len(reads)
+    gb = reads.set_index("DNA")['QC'].groupby(level='DNA') 
+    filenames = [os.path.join(dir, sample)+fastq_ext for dir in (params.training_dir, params.preprocessed_dir)]
+    with open(filenames[0], 'w') as training_file, open(filenames[1], 'w') as cluster_file:
+        reads_tuples = gb.agg(process_read_set, reads.construct_read_set, training_file, cluster_file)
+    reads_ix = pd.MultiIndex.from_tuples(reads_tuples, names=['outcome', 'score'])
+    counts = gb.count().reset_index()
+    counts.index = reads_ix
+    counts = counts.set_index('DNA', append=True)['QC']
+    counts.name = 'Reads' 
+    tallies = counts.groupby(level='outcome').sum()
+    percents = defaultdict(float, tallies/init_reads)
+    Log('Sample {:}: {:.2f}M Reads, {Unaligned:.1%} unaligned, {PhiX:.1%} PhiX, {Wrong Barcode Length:.1%} inappropriate barcode length, {Clustered:.1%} Cluster-able.'.format(sample, init_reads*1e-6, **percents))
+    tallies['Initial'] = init_reads
+    return dict(tallies=tallies,
+                info=info, 
+                unknown_DNAs=counts.reset_index('outcome').query("outcome == 'Unaligned' and Reads > {:}".format(int(args.fraction*init_reads)))['Reads']/init_reads,
+                scores=counts.groupby(level='score').sum())
 
-    #Y_score += np.histogram(NW_fits['score'], weights=NW_fits['abundance'], bins=X_score)[0]
-    NW_fits['aligned'] = NW_fits['score'] >= min_align_score
-    reasonable_fits = NW_fits.query("aligned and abs(stop - start - {0.barcode_length}) <= {0.allowable_deviation}".format(params))
-    reasonable_DNAs = frozenset(reasonable_fits.index.values.tolist())
-    reasonable = gb.filter(lambda data: data.name in reasonable_DNAs )
-    starts = NW_fits.loc[reasonable['DNA'], 'start'].astype(np.int16).values
-    stops =  NW_fits.loc[reasonable['DNA'], 'stop' ].astype(np.int16).values
+_reports = map(process_sample, files)
 
-    training_reads = reasonable.vector_slice([starts - training_flank, starts],
-                                second_slice=[stops , stops  + training_flank])
+dfs = {r['info'].loc['Sample']:r for r in _reports}
+meta_datas = ['tallies', 'unknown_DNAs', 'info', 'scores']
 
-    save_reads(training_reads.drop_degenerate().drop_abnormal_lengths(), params.training_dir, sample)
-    
-    reasonable['DNA'] = reasonable['DNA'].apply(lambda dna: repair_N(to_bytes(dna), b_ref) if 'N' in dna else dna)
-    cluster_df = reasonable.vector_slice([starts - cluster_flank, starts + params.barcode_length + cluster_flank]).drop_degenerate().drop_abnormal_length()
-    EEs = cluster_df.expected_errors()
-    cluster_df = cluster_df.select_reads(EEs <= params.maxEE)
-    save_reads(cluster_df, params.preprocessed_dir, sample) 
+output = {md:pd.concat({d['info'].loc['Sample']:d[md] for d in _reports}, names=['Sample']) for md in meta_datas}
 
-    init_reads = len(start)
-    tally = {'Clustered Reads'  : len(cluster_df), 
-            'Initial Reads'     : init_reads,
-            'Aligned Reads'     : NW_fits[['aligned', 'abundance']].prod(axis=1).sum(),
-        'Unfiltered PhiX Reads' : len(df) - NW_fits['abundance'].sum(),
-            'Perfect Length'    : reasonable_fits.query('stop - start == {:}'.format(params.barcode_length))['abundance'].sum(),
-            'Expected Errors'   : EEs.sum()}
-    
-    tally['Truncated Reads'] = tally['Aligned Reads'] - len(reasonable)
-    tally = pd.Series(tally)
-    
-    percents = tally/init_reads
-    Log('Sample {:}: {:.2}M Reads, {Aligned Reads:.1%} aligned, {Unfiltered PhiX Reads:.1%} PhiX, {Clustered Reads:.1%} Cluster-able.'.format(sample, init_reads*1e-6, **percents))
-    
-    info.pop('Flowcell ID'), info.pop('Flowcell Lane')
+def derep(sample, directories=(params.training_dir, params.preprocessed_dir)):
+    filenames = [os.path.join(Dir, sample+fastq_ext) for Dir in directories]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore") 
+        for f in filenames:
+            try:
+                derep = dada2.derepFastq(f, verbose=args.verbose)
+                R_base.saveRDS(derep, file=f.replace(fastq_ext, '.rds'))
+            except Exception: 
+                Log("Could not derep "+f)
+            else:
+                os.remove(f)
 
-    summary[sample] = tally.append(info)
-    
-    NW_fits['fraction'] = NW_fits['abundance']/init_reads
-    unknown_DNAs[sample] = NW_fits.query("not aligned and fraction >= @args.fraction")
+if args.derep:
+    print("De-replicating outputs for DADA2...")
+    for _ in map(derep, dfs.keys()):
+        pass
 
-for f in files:
-    run(f)
-
-unknown_DNAs = pd.concaat(unknown_DNAs, names=['Sample']) 
-if args.search_blast and len(unknown_DNAs) > 0: 
-    gb = unknown_DNAs.groupby(level='DNA')
+if args.search_blast and len(output['unknown_DNAs']) > 0: 
+    gb = output['unknown_DNAs'].groupby(level='DNA')
     DNAs = list(gb.keys())
     Log("BLAST-searching", len(DNAs), "common unknown sequence(s)...", print_line=True)
     searches = sleuth_DNAs(DNAs, local_blast=args.local_blast)
@@ -153,45 +160,37 @@ if args.search_blast and len(unknown_DNAs) > 0:
                 Log("{:}    {:}    {0:.2%}".format(blast_result, sample, fraction), print_line=True)
                 blast_result = len(blast_result)*' '
 
-summary = pd.DataFrame(summary).T.apply(pd.to_numeric, errors='ignore')
+tallies = output['tallies'].astype(int).unstack()
+info = output['info'].unstack()
 
-def plot_alignment_histogram(filename='alignment_histogram.pdf'):
-    from matplotlib import pyplot as plt
-    ax = plt.gca()
-    dx = X_score[1] - X_score[0]
-    ax.bar(X_score[:-1], Y_score, width=dx)
-    ax.axvline(min_align_score, color='k', linestyle='dashed')
-    ax.set(xlabel='Alignment Score', ylabel='Observations')
-    plt.savefig(filename)
-
-plot_alignment_histogram()
-
-if len(summary['Instrument'].value_counts()) > 1:
+if len(info['Instrument'].value_counts()) > 1:
     Log("This run contains fastq files from two different Illumina machines. This is not recommended.", print_line=True)
 
 def merge_with_metadata_file(summary):
     pass
 
-merge_with_metadata_file(summary)
+def plot_alignment_histogram(data, filename='alignment_histogram.pdf', hist_kwargs={'bins':30}):
+    from matplotlib import pyplot as plt
+    ax = plt.gca()
+    ax.hist(data.index.values, weights=data.values, **hist_kwargs)
+    ax.axvline(min_align_score, color='k', linestyle='dashed')
+    ax.set(xlabel='Alignment Score', ylabel='Observations')
+    plt.savefig(filename)
 
-totals = summary.select_dtypes(exclude=[object]).sum()
-reads = totals['Initial Reads']
-totals['Unaligned Reads'] = reads - totals['Aligned Reads']
+plot_alignment_histogram(output['scores'].groupby(level='score').sum())
 
-EE_rate = totals['Expected Errors']/(totals['Clustered Reads']*(params.barcode_length + 2*params.cluster_flank))
-percents = totals/reads
+merge_with_metadata_file(pd.concat([tallies, info], axis=1))
+
+totals = tallies.sum()
+reads = totals['Initial']
+percents = defaultdict(float, totals/reads)
 
 Log("""
-Summary for {:}:
+Summary of the {:.2f}M processed reads of {:}:
 -----------------------------------------------------------------------------
-Summary of the {:.2}M processed reads:
-{Clustered Reads:.1%} will be used.
-{Unaligned Reads:.1%} of reads did not align well to the master read ({Unfiltered PhiX Reads:.1%} was PhiX, {Truncated Reads:.1%} were truncated.)
-The remainder generally have unfixable 'N' nucleotides or poor Phred Scores.  
-The anticipated Phred-based Error Rate is {EE_rate:.4%} 
-(Error training will undoubtedly find a larger error rate.)""".format(  args.base_dir, 
-                                                        reads*1e-6, 
-                                                        EE_rate=EE_rate,
-                                                        **percents.to_dict()), print_line=True)
+{Clustered:.1%} of reads will be used.
+{Unaligned:.1%} did not align well to the master read ({PhiX:.1%} was PhiX.)
+{Wrong Barcode Length:.1%} had an inappropriate barcode length, while {Residual N:.1%} had an unfixable 'N' base. 
+""".format(reads*1e-6, args.base_dir, **percents), print_line=True)
 Log.close()
 

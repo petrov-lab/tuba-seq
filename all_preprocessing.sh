@@ -6,8 +6,10 @@ DATA_DIR=`pwd`
 
 echo "Analyzing files in $DATA_DIR."
 
-$TUBA_SEQ_DIR/preprocess_unadulterated.py -p $DATA_DIR;
-$TUBA_SEQ_DIR/DADA2_derep.R $DATA_DIR;
+$TUBA_SEQ_DIR/pandaseq.py
+#$TUBA_SEQ_DIR/preprocess_unadulterated.py -p $DATA_DIR;
+$TUBA_SEQ_DIR/preprocess.py
+#$TUBA_SEQ_DIR/DADA2_derep.R $DATA_DIR;
 $TUBA_SEQ_DIR/DADA2_error_training.R $DATA_DIR/training_derep.RData;
 
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";

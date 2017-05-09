@@ -1,7 +1,7 @@
 from datetime import datetime
 
 class logPrint(object):
-    def __init__(self, filename=None, verbose=False):
+    def __init__(self, filename=None, verbose=False, hbar=80*'-'+'\n'):
         import __main__ as main 
         import os
         self.start_time = datetime.now()
@@ -10,13 +10,14 @@ class logPrint(object):
         self.verbose = verbose
         print("Logging output to", self.filename) 
         self.f = open(self.filename, 'a')
-        self.f.write("\n# Output Summary of {self.program:}, executed on {self.start_time:%c}:\n".format(self=self))
-        self.f.write("# --------------------------------------\n")
+        self.f.write(hbar)
+        self.f.write("Output Summary of {self.program:}, executed on {self.start_time:%c}:\n".format(self=self))
+        self.f.write(hbar)
 
     def __call__(self, line, print_line=False):
         if self.verbose or print_line:
             print(line)
-        self.f.write('# '+line+'\n')        
+        self.f.write(line+'\n')        
 
     def close(self):
         runtime = datetime.now() - self.start_time

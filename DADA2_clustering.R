@@ -1,4 +1,4 @@
-#!/usr/bin/Rscript
+#!/usr/bin/env Rscript
 #
 # DADA2_clustering.R derep/INPUT_FILE.RData 
 #
@@ -26,32 +26,38 @@
 
 ############################### I/O Options ###################################
 out.directory <- "clustered"
-training.filename <- "trainingDADA.RData"
+training.filename <- "trainingDADA.rds"
 overwrite.existing.file <- FALSE
 
 ############## IMPORTANT CLUSTERING DADA2 OPTIONS #############################
-setDadaOpt( OMEGA_A     = 1e-10,
-            MIN_HAMMING = 2,            # Possibly unnecessary
-            MIN_FOLD    = 2,            # Possibly unnecessary
-            USE_QUALS   = TRUE)         # Will ignore Phred Scores if TRUE
+paired.end.reads <- TRUE
+library(dada2, quietly=TRUE)
 
+if (paired.end.reads) {
+    setDadaOpt( OMEGA_A     = 1e-4,
+                USE_QUALS   = TRUE)         # Will ignore Phred Scores if TRUE
+} else {
+    setDadaOpt( OMEGA_A     = 1e-10,
+                MIN_HAMMING = 2,            # Possibly unnecessary
+                MIN_FOLD    = 2,            # Possibly unnecessary
+                USE_QUALS   = TRUE)         # Will ignore Phred Scores if TRUE
+}
 ########################## PERFORMANCE DADA2 OPTIONS ##########################
 setDadaOpt( BAND_SIZE=4,    # Lower values improve performance. This value can
                             # be as small as `allowable_deviation` in params.py
                             # without compromising alignment quality.
     VECTORIZED_ALIGNMENT=FALSE, # Unproductive for small BAND_SIZE. 
-	USE_KMERS=TRUE,             # Default           
-    multithread=TRUE)       # See Note 3.    
+	USE_KMERS=TRUE)             # Default           
 
 ####################### I/O SETUP #############################################
 
-library(dada2, quietly=TRUE)
 args <- commandArgs(trailingOnly=TRUE)
 derep.file <- args[1]
 derep <- readRDS(derep.file)
-error <- readRDS(training.filename)
+error.model.dadas <- readRDS(training.filename)
+error <- error.model.dadas[[1]]$err_out 
 
-sample.name <- basename(strsplit(derep.file, ".RData")[[1]][[1]])
+sample.name <- basename(strsplit(derep.file, ".rds")[[1]][[1]])
 
 dir.create(out.directory, showWarnings=FALSE)
 out.file <- file.path(out.directory, paste0(sample.name, ".csv.gz"))
@@ -64,7 +70,8 @@ message("Clustering ", sample.name, ' to ', out.file, ' ...')
 output <- dada( derep, 
                 errorEstimationFunction=loessErrfun,  # Avoids useless warning
 		        err=error,
-		        selfConsist=FALSE)  
+		        selfConsist=FALSE,
+                multithread=TRUE)       # See Note 3.    
 
 File <- gzfile(out.file, "w")
 write.csv(output$clustering, File, quote=FALSE)
