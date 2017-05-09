@@ -2,7 +2,7 @@
 
 Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rcoded deep sequencing. Please refer to our publication in [Nature Methods](http://www.nature.com/nmeth/index.html) for details. 
 
-**Currently, the "Unadulterated" version is working, while the base version is** __incomplete__.
+**Currently, the "Unadulterated" version is working, while the base version is _incomplete_.**
 
 ##OVERVIEW
 
