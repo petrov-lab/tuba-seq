@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+TUBA_PATH=$HOME/tuba_seq/bin
+sgRNA_file=""
+
+$TUBA_PATH/postprocess.py -p -v $sgRNA_file;
+$TUBA_PATH/final_processing.py -v -p --find_order --plot;
+
