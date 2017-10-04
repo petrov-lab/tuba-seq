@@ -25,18 +25,18 @@ Installation from source is intended for POSIX-stle Operating Systems (e.g. Linu
 
 Executable scripts, by virtue of their shebang, assume Python3 & and R are within the user's `$PATH`. The following commands will generally complete installation: 
 
-```
-#Download Source Code
+```sh
+# Download Source Code
 git clone https://github.com/petrov-lab/tuba-seq.git  
 cd tuba-seq
 
-#Install the tuba-seq Python package 
+# Install the tuba-seq Python package 
 ./setup.py install
 
-#Install DADA2 from source
+# Install DADA2 from source
 ./INSTALL_DADA2.R
 
-#Add command-line tools to User's Path (optional)
+# Add command-line tools to User's Path (optional)
 cp bin/* ~/bin
 ```
 
