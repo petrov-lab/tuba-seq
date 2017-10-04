@@ -23,6 +23,7 @@ Installation from source is intended for POSIX-stle Operating Systems (e.g. Linu
 * R 3.2 or later
 * git
 * gcc or clang
+
 Executable scripts, by virtue of their shebang, assume Python3 & and R are within the user's `$PATH`. The following commands will generally complete installation: 
 
 ```
