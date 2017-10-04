@@ -18,7 +18,8 @@ Proficiency with python, its scientific computing modules, command-line scriptin
 
 ## INSTALLATION
 
-Python 3.2 or later, R 3.2 or later, git, and gcc or clang are prerequisites. The following commands will generally complete installation: 
+Installation from source is intended for POSIX-stle Operating Systems (e.g. Linux, darwin). Python 3.2 or later, R 3.2 or later, git, and gcc or clang are prerequisites. Executable scripts, by virtue of their shebang, assume Python3 & and R are within the user's `$PATH`. The following commands will generally complete installation: 
+
 ```
 ## Download Source Code
 git clone https://github.com/petrov-lab/tuba-seq.git
