@@ -1,77 +1,68 @@
 # TuBa-seq Analysis Pipeline #
 
-Command-line data analysis tools for tumor size profiling by **Tu**mor-**Ba**rcoded deep sequencing. Please refer to our publication in [Nature Methods](http://www.nature.com/nmeth/index.html) for details. 
+Command-line tumor-calling & data analysis tools for tumor size profiling by **Tu**mor-**Ba**rcoded ultra-deep sequencing. Please refer to our publication in [Nature Methods][1] for details. 
 
-**Currently, the "Unadulterated" version is working, while the base version is _incomplete_. This pipeline and its installation and usage will be simplified in the coming months.**
+## OVERVIEW
 
-##OVERVIEW
+This package includes a pipeline for processing Illumina &reg Single-end or Paired-end reads (Paired-end is recommended) into unique barcode pileups and their size in Absolute Cell Number, as described in our [original Tuba-Seq paper][1]. Additional tools are provided, including: 
 
-This pipeline uses the [DADA2](https://github.com/benjjneb/dada2) de-noising and sample inference algorithm to identify unique DNA barcodes. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. 
+1. Identification of contaminating DNA and a BLAST-search based investigation of the source of contaminating DNA;
+2. Analysis of the sequencing error-rate of the Illumina run;
+3. Analysis of barcode randomness, total diversity of the viral library, and evidence for cross-contamination within the library;
+4. Statistical tools to summarize tumor size distributions and mice cohorts--including identification of outliers;
+5. Graphing functions to illustrate size distributions.
 
-![Tuba-seq Analysis Pipeline.png](https://bitbucket.org/repo/Mjxqa5/images/12810822-Tuba-seq%20Analysis%20Pipeline.png)
-##INSTALLATION & USAGE
+This pipeline uses the [DADA2][2] de-noising and sample inference algorithm to identify unique DNA barcodes. Because tumors differ in size by >1,000-fold, it is difficult to delineate small tumors from recurrent read errors ([this issue has been well-described previously][3]). As such, DADA2 statistical modeling is computationally-intesnive and tools for broadcasting this step onto a distributed computing cluster are provided. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. The pipeline is also extensible to other barcode clustering algorithms, including direct support for [Bartender][4], which clusters barcodes in a fraction of the time. However, in our experience DADA2 is necessary for faithful tumor calling. 
 
-While *DADA2* is written in R, the pre-processing and post-processing scripts, and utilities are written in Python. Both require Python 3.2 and R 3.2 or later (what a fun coincidence). _DADA2_ should install from **Bioconductor** as follows: 
+Proficiency with python, its scientific computing modules, command-line scripting, distributed clusters, and patience is recommended. 
 
+## INSTALLATION
+
+Installation from source is intended for POSIX-style Operating Systems (e.g. Linux, darwin). The prequisites are:
+* Python 3.2 or later
+* R 3.2 or later
+* gcc or clang
+
+Executable scripts, by virtue of their shebang, assume Python3 & and R are within the user's `$PATH`. The following commands will generally complete installation: 
+
+```sh
+# Download Source Code
+git clone https://github.com/petrov-lab/tuba-seq.git  
+cd tuba-seq
+
+# Install the tuba-seq Python package 
+./setup.py install
+
+# Install DADA2 from source
+./INSTALL_DADA2.R
+
+# Add command-line tools to User's Path (optional)
+cp bin/* ~/bin
 ```
-## try http:// if https:// URLs are not supported
-source("https://bioconductor.org/biocLite.R")
-biocLite("dada2")
-## Other R packages used for summarizing output to install:
-biocLite("shortRead")
-biocLite("ggplot2")
-```
-See [DADA2 Installation](https://benjjneb.github.io/dada2/dada-installation.html) for details. 
 
-A pip installer for the python package is pending. For now, dependencies can be met with the following command: 
+To merge paired-end reads, [PEAR][5] is recommended. It can be installled by following instructions [here][5]. This pipeline is in a very nascent state, Troubleshooting should be dealt with by inspection of the install scripts or by contacting me. 
 
-```
-pip3 install numpy scipy pandas rpy2 matplotlib biopython
-```
+## CONTACT
 
-
-##CONTACT
----------
 Feedback is most appreciated. Please contact me at cmcfarl2 [at] stanford [dot] edu with any questions or suggestions. 
 
-WEBSITE
--------
+## WEBSITE
+
 Documentation and source code can be found at https://github.com/petrov-lab/tuba-seq
 
-
 ## FILE MANIFEST
-----------------
-    
-Often two versions of files exist: a base version and a version with an "_unadulterated" suffix. Base versions are recommended for general use, while unadulterated versions replicate results published in [Rodgers et al. (2017)](http://www.nature.com/nmeth/index.html). Behavior of these two versions should remain similar, however we want to provide users a way to reproduce our published findings, while also developing a more generic pipeline that incorporates evolving best practices. Unadulterated versions are un-maintained. 
 
-### params.py
+### bin/ 
 
-Module that combines all scientifically-relevant *python* script parameters. Individual scripts often have additional command-line arguments, but these arguments define input/output directories, logging or multi-threading, *not* parameters that affect tumor calls. 
+Contains all executables. Python script usage can always be accessed via the `--help` command, e.g.
+```
+bin/preprocess.py --help
+```
+R scripts are self-documented and several very-simple shell scripts are provided to illustrate the typical pipeline workflow. They're best understood by inspection. 
 
-### preprocess.py
+### unadulterated/
 
-Filters raw FASTQ files from deep sequencing using a template of the intended barcode setup. Outputs training files for *DADA2* estimation of error rates and clutering files for *DADA2* barcode clustering. Uses [Needleman-Wunsch](https://en.wikipedia.org/wiki/Needleman%E2%80%93Wunsch_algorithm) alignment of reads to the barcode template for filtering & trimming. 
-
-### DADA2_error_training.R
-
-Estimates a model of sequencing errors from the region of reads that flank the barcodes. Uses output of preprocess.py. 
-
-### DADA2_clustering.R
-
-Clusters unique read pileups into putative tumors based on the *DADA2* amplicon denoising algorithm. Uses output of preprocess.py and DADA2_error_training.R. For samples exceeding 2M reads, I recommend broadcasting this task to a distributed computing array. 
-
-### postprocess.py
-
-Consolidates *DADA2* clustering outputs. Annotates sgRNAs and DNA benchmarks, and isolates the barcode region of reads. Clusters in separate sequencing runs, belonging to the same mouse, and clusters known to derive from the same DNA barcode (by virtue of the DNA template) are consolidated. Summary statistics are provided. 
-
-### final_processing.py
-
-Creates the final estimates of tumor sizes used in this study. These steps are application specific, and we have converged upon best practices for generic tuba-seq experiments. Mice are annotated by their germ-line genotype, their time of sacrifice, and by the viral pool used to initiate tumors. Viral infections not belonging to the intended pool used are removed (these are very rare events). Estimates any bias in PCR amplification that is correlated with the GC content of barcodes and subtracts this bias.
-
-### DADA2_derep.R
-
-De-replicates training & clustering files for *DADA2*. Separating this first step from the algorithm saves space and time (when runs are repeated). This file has been deprecated in the base version.
-
+Contains the version of this code that was used to generate the data published in [Rodgers et al. (2017)][1]. Behavior of this version remains similar to the modern version, but it is not recommended for use (other than for reproducing our published findings). This version lacks considerable functionality and does not incorporate what we believe to be the, evolving, best-practices.  
 
 ### test/
 
@@ -80,3 +71,9 @@ Test suite.
 ### tuba_seq/
 
 Directory of shared python modules.
+
+[1]: https://www.nature.com/nmeth/journal/v14/n7/full/nmeth.4297.html "A quantitative and multiplexed approach to uncover the fitness landscape of tumor suppression in vivo"
+[2]: https://github.com/benjjneb/dada2 "DADA2 Public Repository"
+[3]: https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-016-0999-4 "Reproducibility of Illumina platform deep sequencing errors allows accurate determination of DNA barcodes in cells" 
+[4]: https://www.biorxiv.org/content/early/2016/08/10/068916 "Bartender: an ultrafast and accurate clustering algorithm to count barcode and amplicon reads"
+[5]: https://sco.h-its.org/exelixis/web/software/pear/ "PEAR - Paired-End reAd mergeR"
