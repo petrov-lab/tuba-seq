@@ -24,7 +24,7 @@ Python 3.2 or later, R 3.2 or later, git, and gcc or clang are prerequisites. Th
 git clone https://github.com/petrov-lab/tuba-seq.git
 cd tuba-seq
 
-# Install Python module
+# Install the tuba-seq Python package 
 ./setup.py install
 
 # Install DADA2 from source
