@@ -14,7 +14,7 @@ This package includes a pipeline for processing Illumina &reg Single-end or Pair
 
 This pipeline uses the [DADA2][2] de-noising and sample inference algorithm to identify unique DNA barcodes. Because tumors differ in size by >1,000-fold, it is difficult to delineate small tumors from recurrent read errors ([this issue has been well-described previously][3]). As such, DADA2 statistical modeling is computationally-intesnive and tools for broadcasting this step onto a distributed computing cluster are provided. Sequencing error rates are estimated from the non-degenerate regions of DNA barcodes using a novel approach. The pipeline is also extensible to other barcode clustering algorithms, including direct support for [Bartender][4], which clusters barcodes in a fraction of the time. However, in our experience DADA2 is necessary for faithful tumor calling. 
 
-Proficiency with python, its scientific computing modules, command-line scripting, distributed clusters, and patience, is recommended. 
+Proficiency with python, its scientific computing modules, command-line scripting, distributed clusters, and patience is recommended. 
 
 ## INSTALLATION
 
