@@ -6,9 +6,17 @@ url: https://github.com/noporpoise/seq-align
 author: Isaac Turner turner.isaac@gmail.com
 license: Public Domain
 
-The python class NW performs Needleman-Wunsch Alignments with keyword-argument
-handling of the scoring matrix & alignment parameters, and assimilates memory 
-management--it does not do anything else. 
+The python class NW performs Needleman-Wunsch Alignments with the following
+minor changes to Issac's code: 
+
+1) Keyword-argument handling of scoring matrix & alignment parameters, 
+
+2) a new 'add_neutral_N' method that augments the scoring matrix such that 'N' 
+   bases do not match nor mismatch (score of 0 always),
+
+3) Memory management with python/numpy objects and their builtin referencing,
+
+4) New methods to handle python bytes objects, ascii encoding, as inputs. 
 """
 
 cdef extern from 'alignment.h':

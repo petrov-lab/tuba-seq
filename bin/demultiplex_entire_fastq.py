@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os, argparse
 from tuba_seq.fastq import singleMismatcher 
 from tuba_seq.shared import logPrint

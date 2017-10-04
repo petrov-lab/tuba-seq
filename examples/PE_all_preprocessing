@@ -1,14 +1,17 @@
 #!/bin/sh
 set -e 
 
-TUBA_SEQ_DIR="$HOME/tuba_seq/"
-DATA_DIR=`pwd` 
-MERGING_ALGORITHM="PEAR"        # PEAR, SeqPrep, or PANDAseq
+TUBA_PATH="$HOME/tuba-seq/bin"      # PATH to tuba-seq executables
+DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
+MERGE_DIR='merged_reads'            # Directory name for merged forward/reverse reads.
+
+FORWARD_READS="forward_reads"
+REVERSE_READS="reverse_reads"
 
 echo "Analyzing paired-end fastq files in $DATA_DIR."
 
-$TUBA_SEQ_DIR/$MERGING_ALGORITHM.py;
-$TUBA_SEQ_DIR/preprocess.py -p -s $DADA_DIR/merged/;
+$TUBA_SEQ_DIR/$MERGING_ALGORITHM.py -p -m $DATA_DIR/$MERGE_DIR $DATA_DIR/$FORWARD_READS $DATA_DIR $REVERSE_READS;
+$TUBA_SEQ_DIR/preprocess.py -p -s $DATA_DIR/$MERGE_DIR;
 $TUBA_SEQ_DIR/DADA2_error_training.R $DATA_DIR/training_derep.RData >> DADA2_error_training.LOG;
 
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";

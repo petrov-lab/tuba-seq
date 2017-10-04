@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import pandas as pd
 import os, numpy, argparse
-from tuba_seq.fastq import fastqDF, infer_master_read, MasterRead
+from tuba_seq.fastq import fastqDF, MasterRead
 from tuba_seq.shared import logPrint
 from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri
@@ -14,8 +14,8 @@ fastq_ext = '.fastq'
 
 parser = argparse.ArgumentParser(description="Prepare FASTQ files for DADA training & clustering.",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('input_dir', type=str, 
-    help='Input directory with fastq files.') # By default will be {:} if using merged paired-end reads and {:} if not.'.format(merged_dir, original_dir))
+
+parser.add_argument('input_dir', type=str, help='Input directory with fastq files.') 
 parser.add_argument('--master_read', type=str, default='infer', help="Outline of the amplicon sequence, degenerate bases can be either 'N' or '.' E.g. ATCGATCGTCGA........AA.....TT.....AA.....GTTCGAGCTAGC")
 
 parser.add_argument('-t', '--training_dir', default='training/', help='Directory to save files for error training.') 
@@ -76,10 +76,9 @@ def process_sample(filename):
     init_reads = len(reads)
     gb = reads.set_index("DNA")['QC'].groupby(level='DNA') 
     counts = gb.count()
-    
 
-    master_read = MasterRead(args.master_read if args.master_read != 'infer' else infer_master_read(counts.nlargest(1000).index), 
-                             args.allowable_deviation, args.min_align_score, args.alignment_flank, args.training_flank, args.allowable_deviation)
+    master_read = MasterRead(args.master_read, args) if args.master_read != 'infer' else MasterRead.infer_from_DNAs(counts.nlargest(1000).index, args)
+    
     with open(filenames[0], 'wb') as training_file, open(filenames[1], 'wb') as cluster_file:
         reads_tuples = gb.agg(master_read.process_read_set, reads.construct_read_set, training_file, cluster_file)
     output = pd.DataFrame(reads_tuples.tolist(), columns=['outcome', 'score'], index=counts.index)

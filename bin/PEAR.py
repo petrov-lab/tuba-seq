@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description="Run PEAR (Illumina Paired-End reAd
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("forward_read_dir", help="Directory containing forward read files.")
 parser.add_argument("reverse_read_dir", help="Directory containing reverse read files (will be mated by sample name).")
-parser.add_argument("-m", '--merge_dir', default='merged', help="Directory to saved merged fastq files")
+parser.add_argument("-m", '--merge_dir', default='merged_reads', help="Directory to saved merged fastq files")
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
 parser.add_argument('-c', '--cmd', default='pear', help='Name of PEAR PATH/executable.')

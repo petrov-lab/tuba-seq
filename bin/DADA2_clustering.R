@@ -2,11 +2,14 @@
 #
 # DADA2_clustering.R derep/INPUT_FILE.RData 
 #
-# Clusters a single derep'ed input sample using DADA2. This script can take
+# Clusters a single derep'ed input sample using DADA2. If no input file is 
+# provided, this script will assume it is being executed as part of a job array
+# and will search the environment variables (verbosely) for a task ID that will
+# assign it a job within the `in.directory` folder. This script can take
 # several days, sometimes longer, to complete per sample and it is recommended 
-# to be broadcasted onto a high-performance computing cluster (one job per 
-# sample.) Outputs a CSV-format data table entitled INPUT_FILE.csv.gz into the
-# `out_directory` folder.
+# to be used as part of a job array on a high-performance computing cluster.
+# Outputs a CSV-format data table entitled INPUT_FILE.csv.gz into the
+# `out.directory` folder.
 #
 #
 # A few notes on performance:
@@ -15,44 +18,58 @@
 #    doing so may over-cluster barcodes. Conversely, a too large omega can be 
 #    fixed ex post facto, so don't decrease this value unnecessarily. 
 #
-# 2. The other parameters have been somewhat optimized for speed on common 
-#    architectures, I wouldn't bother with tinkering, unless runtimes often 
+# 2. The other parameters have been somewhat optimized for speed on Xeon 
+#    architectures, I wouldn't bother tinkering, unless runtimes often 
 #    exceed a week.
 #
-# 3. Multithreading decreases runtime by ~25-50% in my experience. I recommend
+# 3. Multi-threading decreases runtime to ~20-40% in my experience. I recommend
 #    broadcasting sample clustering onto a distributed computing system where
-#    each sample is clustered by a dedicated compute node (with no other
-#    concurrent tasks.)
+#    each sample is clustered by an entire, dedicated compute node.
 
 ############################### I/O Options ###################################
+in.directory <- "preprocessed"
 out.directory <- "clustered"
 training.filename <- "trainingDADA.rds"
 overwrite.existing.file <- FALSE
 
 ############## IMPORTANT CLUSTERING DADA2 OPTIONS #############################
-paired.end.reads <- TRUE
 library(dada2, quietly=TRUE)
+setDadaOpt( OMEGA_A     = 1e-10,
+            USE_QUALS   = TRUE )         # Will ignore Phred Scores if TRUE
 
-if (paired.end.reads) {
-    setDadaOpt( OMEGA_A     = 1e-2,
-                USE_QUALS   = TRUE)         # Will ignore Phred Scores if TRUE
-} else {
-    setDadaOpt( OMEGA_A     = 1e-10,
-                MIN_HAMMING = 2,            # Possibly unnecessary
-                MIN_FOLD    = 2,            # Possibly unnecessary
-                USE_QUALS   = TRUE)         # Will ignore Phred Scores if TRUE
-}
 ########################## PERFORMANCE DADA2 OPTIONS ##########################
-setDadaOpt( BAND_SIZE=4,    # Lower values improve performance. This value can
-                            # be as small as `allowable_deviation` in params.py
-                            # without compromising alignment quality.
+setDadaOpt( BAND_SIZE=4,        # Lower values improve performance. This value 
+                                # can be as small as `allowable_deviation` 
+                                # without compromising alignment quality.
     VECTORIZED_ALIGNMENT=FALSE, # Unproductive for small BAND_SIZE. 
 	USE_KMERS=TRUE)             # Default           
 
 ####################### I/O SETUP #############################################
 
+# Get file to cluster; use trailing arguments, then try job array IDs
 args <- commandArgs(trailingOnly=TRUE)
-derep.file <- args[1]
+
+if (length(args) == 1) {
+    derep.file <- args[1];
+} else {
+    files <- list.files(in.directory);
+    dereped.files <- sort(files[grepl(".rds", files)]);
+    if (length(dereped.files) == 0)
+        stop("No input file provided and no input files in ", in.directory, call. = TRUE)
+# Various potential grid-engine task ids:
+    slurm.id <- Sys.getenv("SLURM_ARRAY_TASK_ID");
+    sge.id <- Sys.getenv("SGE_TASK_ID");
+    if (slurm.id != "") {
+        derep.file <- dereped.files[[strtoi(slurm.id)]];
+        message("Running slurm job #", slurm.id, " of ", length(dereped.files), ".")
+    } else if (sge.id != "") {
+        derep.file <- dereped.files[[strtoi(sge.id)]];
+        message("Running SGE job #", sge.id, " of ", length(dereped.files), ".")
+    } else {
+        stop("Found input files, but no slurm nor SGE task ID.")
+    }
+}
+
 derep <- readRDS(derep.file)
 error.model.dadas <- readRDS(training.filename)
 error <- error.model.dadas[[1]]$err_out 
@@ -76,6 +93,6 @@ output <- dada( derep,
 File <- gzfile(out.file, "w")
 write.csv(output$clustering, File, quote=FALSE)
 close(File)
-message("Successfully clustered ", sample.name, ".")
+message("Successfully clustered ", sample.name, " in " round(proc.time()[['elapsed']]/60), " mins.")
 
 ###############################################################################

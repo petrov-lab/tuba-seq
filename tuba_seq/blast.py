@@ -1,3 +1,15 @@
+"""Perform NCBI's BLAST-searching on DNA sequences.
+
+Leverages biopython's Blast sub-package, except always queries the entire 'nt'
+database and simplifies output.
+
+By default, web-based searching is used. However, if you have a local 'nt'
+database and the NCBI BLAST+ suite, local searches are possible. This database
+must be setup as described in 
+http://biopython.org/DIST/docs/tutorial/Tutorial.html#htoc89
+
+"""
+
 import pandas as pd
 import os
 

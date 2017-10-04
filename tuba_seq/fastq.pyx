@@ -1,3 +1,19 @@
+"""Low-level, efficient functionality to handle FASTQ files.
+
+There are three classes within this module:
+
+1) fastqDF (subclass of pandas.DataFrame)
+    Reads, processes (slices, queries, etc), and writes FASTQ files.
+
+2) MasterRead
+    Can identify a `MasterRead` from amplicon pileups and then align/score reads
+    against this `MasterRead`. 
+
+3) singleMismatcher
+    Identifies single-mismatch-tolerant substrings within a sequence.
+
+"""
+
 import pandas as pd
 import os
 from collections import OrderedDict
@@ -70,7 +86,9 @@ class fastqDF(pd.DataFrame):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             initial_seqs = self[['DNA', 'QC']].values
+
             self.loc[:, ['DNA', 'QC']] = np.array([[dna[Slice], qc[Slice]] for (dna, qc), Slice in zip(initial_seqs, slices)])
+
             if second_slice is not None:
                 second_slice = np.array([[dna[Slice], qc[Slice]] for (dna, qc), Slice in zip(initial_seqs, slices)])
                 self['DNA'] = self['DNA'].str.cat(second_slice[:, 0]) 
@@ -104,23 +122,76 @@ nw = NW(**NW_kwargs)
 nw.add_neutral_N()
 
 def cprint(s): print(s.decode('ascii'))
+
 c_gap = '-'.encode('ascii') 
 c_N = 'N'.encode('ascii') 
 
-def repair_N(c_seq, c_ref):
-    seq_align, ref_align, _score = nw.char_align(c_seq, c_ref)
-    seq_align, ref_align = seq_align.decode("ascii"), ref_align.decode("ascii")
-    return ''.join([r_i if (s_i == 'N' and r_i != '-') else s_i for i, (s_i, r_i) in enumerate(zip(seq_align, ref_align)) if s_i != '-'])
+def infer_master_read(DNAs):
 
-def find_start_stop(seq, ref): 
-    """score=score of [match, mismatch, gap_start, gap_extend]"""
-    seq_align, ref_align, _score = nw.char_align(seq, ref) 
-    cdef:
-        int ref_start = ref_align.index(c_N)
-        int ref_stop = ref_align.rindex(c_N) + 1
-        int head_gaps = seq_align[0:ref_start].count(c_gap)
-        int barcode_gaps = seq_align[ref_start:ref_stop].count(c_gap)
-    return ref_start - head_gaps, ref_stop - head_gaps - barcode_gaps
+class MasterRead(object):
+    def __init__(self, master_read, args):
+        self.alignment_flank = args.alignment_flank
+        self.training_flank = args.training_flank
+        self.cluster_flank = args.cluster_flank if hasattr(args, 'cluster_flank') else args.alignment_flank
+        
+        self.ref = master_read.replace('.', 'N')
+        self.c_ref = self.ref.encode('ascii')
+        self.c_ref_scoring = self.c_ref[self.ref.index('N') - args.alignment_flank: self.ref.rindex('N')+args.alignment_flank+1]
+        self.barcode_length = len(self.c_ref) - len(self.c_ref_scoring)
+        self.max_score = nw.char_score(self.c_ref_scoring, self.c_ref_scoring)
+        self.min_align_score = args.min_align_score
+
+    @classmethod
+    def infer_from_DNAs(cls, DNAs, args):
+        counts = pd.concat({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
+        PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
+        master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > 0.75 else 'N'))
+        return cls(master_read, args)
+
+    def find_start_stop(self, seq): 
+        """score=score of [match, mismatch, gap_start, gap_extend]"""
+        seq_align, ref_align, _score = nw.char_align(seq, self.c_ref) 
+        cdef:
+            int ref_start = ref_align.index(c_N)
+            int ref_stop = ref_align.rindex(c_N) + 1
+            int head_gaps = seq_align[0:ref_start].count(c_gap)
+            int barcode_gaps = seq_align[ref_start:ref_stop].count(c_gap)
+        return ref_start - head_gaps, ref_stop - head_gaps - barcode_gaps
+
+    def repair_N(self, c_seq):
+        seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
+        return ''.join([s if (s != 'N' or r == '-') else r for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')) if s != '-'])
+    
+    def process_read_set(self, QCs, read_constructor, training_file, cluster_file):
+        cdef:
+            int BL = self.barcode_length
+            int TF = self.training_flank
+            int CF = self.cluster_flank
+            int start
+            int stop
+        dna = QCs.name
+        c_dna = dna.encode('ascii')
+        start, stop = self.find_start_stop(c_dna)
+        c_dna_scoring = c_dna[start - self.alignment_flank:stop + self.alignment_flank]
+        score = nw.char_score(c_dna_scoring, self.c_ref_scoring)/self.max_score
+        if score < self.min_align_score:
+            return 'Unaligned', score
+        if abs((stop - start) - BL) > self.allowable_deviation:
+            return 'Wrong Barcode Length', score
+        training_DNA = dna[start - TF:start]+dna[stop:stop + TF]
+        if 'N' not in training_DNA and len(training_DNA) == 2*TF:
+            training_QCs =  QCs.str.slice(start - TF, start).str.cat(
+                            QCs.str.slice(stop, stop + TF))
+            training_file.write(read_constructor(training_DNA, training_QCs)) 
+        if 'N' in dna:
+            dna = self.repair_N(c_dna)
+        cluster_DNA = dna[start - CF:start+BL+CF]
+        if 'N' in cluster_DNA:
+            return 'Insufficient Flank', score
+        if len(cluster_DNA) != (BL+ 2*CF):
+            return 'Residual N', score
+        cluster_file.write(read_constructor(cluster_DNA, QCs.str.slice(start - CF, start+BL+CF)))
+        return 'Clustered', score
 
 import re
 class singleMismatcher(object):

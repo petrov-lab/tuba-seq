@@ -1,9 +1,13 @@
 #!/bin/sh
+set -e
 
-python3 ../preprocess_unadulterated.py
+TUBA_PATH=$HOME/tuba-seq
+
+$TUBA_PATH/unadulterated/preprocess.py
 
 gunzip training/*.gz
 gunzip preprocessed/*.gz
 
-../DADA2_derep.R ./
-../DADA2_error_training.R training 2> error_training_output_unadulterated.txt
+$TUBA_PATH/unadulterated/DADA2_derep.R ./
+$TUBA_PATH/DADA2_error_training.R training 2&1>> DADA2_error_training.LOG
+

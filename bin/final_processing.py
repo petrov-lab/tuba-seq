@@ -19,7 +19,7 @@ IO_group.add_argument('--simple_out_file', type=str, default='tumor_number.csv',
 IO_group.add_argument('-b', '--bartender', action='store_true', help='Process Bartender (https://github.com/LaoZZZZZ/bartender-1.1) clustering output.')
 IO_group.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 IO_group.add_argument('-s', '--spike_barcodes', nargs='+', default='infer', help='Barcodes present in the spiked-in benchmark barcodes')
-IO_group.add_argument('--plot', action='store_true', help='Graph the best-fitting model of GC bias & the Barcode Diversity Report.')
+IO_group.add_argument('--report', action='store_true', help='Graph the best-fitting model of GC bias, and provide a report on Barcode Diversity & potential contaminations.')
 
 OP_group = parser.add_argument_group('OP', 'Optional arguments affecting operation')
 OP_group.add_argument('--final_filter', default='Concentration >= 1 and Cells >= 500', help='Final barcode filter')
@@ -77,7 +77,7 @@ if args.find_order:
 model = model_fit(args.order)
 Log(model.summary(), True)
 
-if args.plot:
+if args.report:
     df = residual.reset_index()
     X_lim = df['GCs'].quantile(q=[0.0005, 0.9995])
     x = np.linspace(*X_lim.values, num=200)
@@ -99,6 +99,8 @@ if args.plot:
     ax.xaxis.set_ticks(xrange_GCs[keep] - x[0])
     ax.xaxis.set_ticklabels(list(map(str, xrange_frac[keep])))
     savefig("Quality_of_GC_fit", transparent=True, bbox_inches='tight')
+
+    
 
 predictor = pd.Series(model.predict(), index=data.index)
 
@@ -144,7 +146,19 @@ tumor_df = clean.query('pass_filter and target != "Spike"').reset_index()[['Mous
 tumor_df.to_csv(args.simple_out_file+'.gz', index=False, compression='gzip')
 tumors = tumor_df.set_index(["Mouse", 'target', 'barcode'])["Cells"]
 
-if args.plot:
-    from tuba_seq.graphs import barcode_diversity_report
-    Log("Performing final report on the Diversity of the Random Barcodes...")
-    barcode_diversity_report(tumors)
+if args.report:
+    from tuba_seq.reports import barcode_diversity, contamination
+    Log("Graphing on the Diversity of the Random Barcodes...")
+    barcode_diversity(tumors)
+    contaminants = contamination(tumors) 
+    if len(contaminants) == 0:
+        Log("Found no evidence of cross-contamination of samples.", True)
+    else:
+        Log("""
+There was an abnormally-high degree of overlapping barcodes between specific 
+samples in this library suggesting cross-contamination of the following samples:
+"""+contaminants.reset_index().to_string(index=False)+"""
+Directionality of contamination is inferred by the `Size Ratio` of overlapping
+barcodes, i.e. the contamination volume should be smaller than its original 
+sample. This may be an unreliable assumption.""", True)
+
