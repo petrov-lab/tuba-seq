@@ -18,7 +18,7 @@ Proficiency with python, its scientific computing modules, command-line scriptin
 
 ## INSTALLATION
 
-Installation from source is intended for POSIX-stle Operating Systems (e.g. Linux, darwin). The prequisites are:
+Installation from source is intended for POSIX-style Operating Systems (e.g. Linux, darwin). The prequisites are:
 * Python 3.2 or later
 * R 3.2 or later
 * gcc or clang
