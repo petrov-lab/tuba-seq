@@ -4,7 +4,7 @@ Command-line tumor-calling & data analysis tools for tumor size profiling by **T
 
 ## OVERVIEW
 
-This package includes a pipeline for processing Illumina &reg Single-end or Paired-end reads (Paired-end is recommended) into unique barcode pileups and thier size in Absolute Cell Number, as described in our [original Tuba-Seq paper][1]. Additional tools are provided, including: 
+This package includes a pipeline for processing Illumina &reg Single-end or Paired-end reads (Paired-end is recommended) into unique barcode pileups and their size in Absolute Cell Number, as described in our [original Tuba-Seq paper][1]. Additional tools are provided, including: 
 
 1. Identification of contaminating DNA and a BLAST-search based investigation of the source of contaminating DNA;
 2. Analysis of the sequencing error-rate of the Illumina run;
