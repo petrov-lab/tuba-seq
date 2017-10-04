@@ -60,7 +60,7 @@ bin/preprocess.py --help
 ```
 R scripts are self-documented and several very-simple shell scripts are provided to illustrate the typical pipeline workflow. They're best understood by inspection. 
 
-### unadulterated
+### unadulterated/
 
 Contains the version of this code that was used to generate the data published in [Rodgers et al. (2017)][1]. Behavior of this version remains similar to the modern version, but it is not recommended for use (other than for reproducing our published findings). This version lacks considerable functionality and does not incorporate what we believe to be the, evolving, best-practices.  
 
