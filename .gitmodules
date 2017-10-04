@@ -1,12 +1,3 @@
-[submodule "tuba_seq/seq-align"]
-	path = seq-align
-	url = https://github.com/noporpoise/seq-align.git
-[submodule "tuba_seq/PEAR"]
-    path = PEAR
-    url = https://github.com/frederic-mahe/PEAR.git
 [submodule "seq-align"]
 	path = seq-align
 	url = https://github.com/noporpoise/seq-align
-[submodule "PEAR"]
-	path = PEAR
-	url = https://github.com/frederic-mahe/PEAR
