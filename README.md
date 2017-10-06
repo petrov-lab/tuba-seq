@@ -40,7 +40,7 @@ cd tuba-seq
 cp bin/* ~/bin
 ```
 
-To merge paired-end reads, [PEAR][5] is recommended. It can be installled by following instructions [here][5]. This pipeline is in a very nascent state, Troubleshooting should be dealt with by inspection of the install scripts or by contacting me. 
+To merge paired-end reads, I recommend using the PEAR Algorithm (installation instructions [here][5]). This pipeline is in a very nascent state, so there is no troubleshooting manual. Please contact me, if you can not troubleshoot install problems by inspection. 
 
 ## CONTACT
 
