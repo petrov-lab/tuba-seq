@@ -23,7 +23,7 @@ Installation from source is intended for POSIX-style Operating Systems (e.g. Lin
 * R 3.2 or later
 * gcc or clang
 
-Executable scripts, by virtue of their shebang, assume Python3 & and R are within the user's `$PATH`. The following commands will generally complete installation: 
+Executable scripts, by virtue of their shebang, assume python3 and R are within the user's `$PATH`. The following commands will generally complete installation: 
 
 ```sh
 # Download Source Code
