@@ -23,7 +23,7 @@ Installation from source is intended for POSIX-style Operating Systems (e.g. Lin
 * R 3.2 or later
 * gcc or clang
 
-Executable scripts, by virtue of their shebang, assume Python3 & and R are within the user's `$PATH`. The following commands will generally complete installation: 
+Executable scripts, by virtue of their shebang, assume python3 and R are within the user's `$PATH`. The following commands will generally complete installation: 
 
 ```sh
 # Download Source Code
@@ -40,7 +40,7 @@ cd tuba-seq
 cp bin/* ~/bin
 ```
 
-To merge paired-end reads, [PEAR][5] is recommended. It can be installled by following instructions [here][5]. This pipeline is in a very nascent state, Troubleshooting should be dealt with by inspection of the install scripts or by contacting me. 
+To merge paired-end reads, I recommend using the PEAR Algorithm (installation instructions [here][5]). This pipeline is in a very nascent state, so there is no troubleshooting manual. Please contact me, if you cannot troubleshoot install problems yourself. 
 
 ## CONTACT
 
