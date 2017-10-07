@@ -68,7 +68,10 @@ def process_sample(filename):
         Log("Skipping "+sample+" (already exists).")
         return None
     if os.path.getsize(filename) > max_file_size:
-         warnings.warn("{:} is {:.1} GB. preprocess.py must load this entire fastq file into memory--and gzip decompression will inflate this size ~10x. You'll need about twice this amount of memory for successful execution.", RuntimeWarning)
+         warnings.warn("""
+{:} is {:.1} GB. preprocess.py must load this entire fastq file into memory, 
+and gzip decompression will inflate this size ~10x. You'll need about twice this
+amount of memory for successful execution.""".format(filename, os.path.getsize(filename)/1e9), RuntimeWarning)
          if args.parallel:
             warnings.warn("Running preprocess.py in non-multi-threaded form saves memory (multi-threading processes several fastq files simultaneously).", RuntimeWarning)
 

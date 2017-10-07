@@ -46,7 +46,7 @@ class sample(object):
     def bs_estimate(self, *_args):
         return self.estimator(self.rs(), **self.kwargs)
 
-    def __init__(self, df, estimator, N=4000, time_warning=60, map=pmap, constrain_level=None, **kwargs):
+    def __init__(self, df, estimator, N=4000, time_warning=60, map=pmap, constrain_level=None, min_pvalue=None, **kwargs):
         """sample(df, estimator) -> bootstrap object
 
 Creates bootstrap sampling distribution of df.apply(estimator). 
@@ -76,13 +76,17 @@ Properties of the Bootstrap Method:
     asymptotically large. However, N may need to be very large to converge to 
     true CI, rendering the method infeasible. 
 """
+        if min_pvalue is not None:
+            N = int(np.ceil(4/(min_pvalue*self.permissible_uncertainty**2)))
+            self.min_pvalue = min_pvalue
+        else:
+            self.min_pvalue = 4/(N*self.permissible_uncertainty**2)
         assert N >= 1, "must have at least one bootstrap sample"
         self.df         = df
         self.estimator  = estimator 
         self.constrain_level = constrain_level
         self.map = map
 
-        self.min_pvalue = 4/(N*self.permissible_uncertainty**2)
         self.kwargs = kwargs
         self.true_estimate = estimator(self.df, **kwargs)
         
@@ -173,8 +177,7 @@ Parameters:
 
     def pscores(self, null_hypothesis=0, two_sided=True):
         """null_hypothesis [def: 0] : value to reject.
-        test [def: 'two-sided']  : can also be 'above' or 'below' null_hypothesis.
-        bonferroni_correction [def: 1] : Number of multiple-hypotheses
+        two_sided [def: True] : two-sided test; if False, reports the probability that the observed value is above the null_hypothesis.
 """
         pscores = self.percentileofscore(null_hypothesis)*1e-2
         return pd.DataFrame([pscores, 1 - pscores]).min()*2 if two_sided else pscores

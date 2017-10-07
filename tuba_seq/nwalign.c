@@ -3,7 +3,14 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "depends": [],
+        "depends": [
+            "/usr/local/lib/python3.6/site-packages/numpy/core/include/numpy/arrayobject.h",
+            "/usr/local/lib/python3.6/site-packages/numpy/core/include/numpy/ufuncobject.h"
+        ],
+        "include_dirs": [
+            "seq-align/src",
+            "/usr/local/lib/python3.6/site-packages/numpy/core/include"
+        ],
         "name": "tuba_seq.nwalign",
         "sources": [
             "tuba_seq/nwalign.pyx"

@@ -3,7 +3,18 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "depends": [],
+        "depends": [
+            "seq-align/src/alignment.c",
+            "seq-align/src/alignment.h",
+            "seq-align/src/alignment_scoring.c",
+            "seq-align/src/alignment_scoring.h",
+            "seq-align/src/needleman_wunsch.c",
+            "seq-align/src/needleman_wunsch.h"
+        ],
+        "include_dirs": [
+            "seq-align/src",
+            "/usr/local/lib/python3.6/site-packages/numpy/core/include"
+        ],
         "name": "tuba_seq.seq_align",
         "sources": [
             "tuba_seq/seq_align.pyx"
@@ -741,7 +752,7 @@ static const char *__pyx_f[] = {
 /*--- Type declarations ---*/
 struct __pyx_obj_8tuba_seq_9seq_align_NW;
 
-/* "tuba_seq/seq_align.pyx":18
+/* "tuba_seq/seq_align.pyx":26
  *         pass
  * 
  * ctypedef aligner_t nw_aligner_t             # <<<<<<<<<<<<<<
@@ -750,7 +761,7 @@ struct __pyx_obj_8tuba_seq_9seq_align_NW;
  */
 typedef aligner_t __pyx_t_8tuba_seq_9seq_align_nw_aligner_t;
 
-/* "tuba_seq/seq_align.pyx":50
+/* "tuba_seq/seq_align.pyx":58
  *                   int no_mismatches, int case_sensitive)
  * 
  * cdef class NW(object):             # <<<<<<<<<<<<<<
@@ -1096,7 +1107,7 @@ static const char __pyx_k_end_gap_penalty[] = "end_gap_penalty";
 static const char __pyx_k_setstate_cython[] = "__setstate_cython__";
 static const char __pyx_k_start_gap_penalty[] = "start_gap_penalty";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
-static const char __pyx_k_A_simple_wrapper_around_Isaac_T[] = "\nA simple wrapper around Isaac Turner's seq-align repo:\n\nSmith-Waterman & Needleman-Wunsch Alignment in C\nurl: https://github.com/noporpoise/seq-align\nauthor: Isaac Turner turner.isaac@gmail.com\nlicense: Public Domain\n\nThe python class NW performs Needleman-Wunsch Alignments with keyword-argument\nhandling of the scoring matrix & alignment parameters, and assimilates memory \nmanagement--it does not do anything else. \n";
+static const char __pyx_k_A_simple_wrapper_around_Isaac_T[] = "\nA simple wrapper around Isaac Turner's seq-align repo:\n\nSmith-Waterman & Needleman-Wunsch Alignment in C\nurl: https://github.com/noporpoise/seq-align\nauthor: Isaac Turner turner.isaac@gmail.com\nlicense: Public Domain\n\nThe python class NW performs Needleman-Wunsch Alignments with the following\nminor changes to Issac's code: \n\n1) Keyword-argument handling of scoring matrix & alignment parameters, \n\n2) a new 'add_neutral_N' method that augments the scoring matrix such that 'N' \n   bases do not match nor mismatch (score of 0 always),\n\n3) Memory management with python/numpy objects and their builtin referencing,\n\n4) New methods to handle python bytes objects, ascii encoding, as inputs. \n";
 static const char __pyx_k_no_default___reduce___due_to_non[] = "no default __reduce__ due to non-trivial __cinit__";
 static PyObject *__pyx_n_s_TypeError;
 static PyObject *__pyx_n_s_a;
@@ -1154,7 +1165,7 @@ static PyObject *__pyx_tuple__6;
 static PyObject *__pyx_tuple__7;
 static PyObject *__pyx_tuple__8;
 
-/* "tuba_seq/seq_align.pyx":54
+/* "tuba_seq/seq_align.pyx":62
  *     cdef scoring_t _scoring
  * 
  *     def __cinit__(self):             # <<<<<<<<<<<<<<
@@ -1183,7 +1194,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW___cinit__(struct __pyx_obj_8tuba_se
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "tuba_seq/seq_align.pyx":55
+  /* "tuba_seq/seq_align.pyx":63
  * 
  *     def __cinit__(self):
  *         self._aligner = needleman_wunsch_new()             # <<<<<<<<<<<<<<
@@ -1192,7 +1203,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW___cinit__(struct __pyx_obj_8tuba_se
  */
   __pyx_v_self->_aligner = needleman_wunsch_new();
 
-  /* "tuba_seq/seq_align.pyx":54
+  /* "tuba_seq/seq_align.pyx":62
  *     cdef scoring_t _scoring
  * 
  *     def __cinit__(self):             # <<<<<<<<<<<<<<
@@ -1206,7 +1217,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW___cinit__(struct __pyx_obj_8tuba_se
   return __pyx_r;
 }
 
-/* "tuba_seq/seq_align.pyx":57
+/* "tuba_seq/seq_align.pyx":65
  *         self._aligner = needleman_wunsch_new()
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -1231,7 +1242,7 @@ static void __pyx_pf_8tuba_seq_9seq_align_2NW_2__dealloc__(struct __pyx_obj_8tub
   __pyx_t_8tuba_seq_9seq_align_nw_aligner_t *__pyx_t_1;
   __Pyx_RefNannySetupContext("__dealloc__", 0);
 
-  /* "tuba_seq/seq_align.pyx":58
+  /* "tuba_seq/seq_align.pyx":66
  * 
  *     def __dealloc__(self):
  *         cdef nw_aligner_t *aligner = self._aligner             # <<<<<<<<<<<<<<
@@ -1241,7 +1252,7 @@ static void __pyx_pf_8tuba_seq_9seq_align_2NW_2__dealloc__(struct __pyx_obj_8tub
   __pyx_t_1 = __pyx_v_self->_aligner;
   __pyx_v_aligner = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":59
+  /* "tuba_seq/seq_align.pyx":67
  *     def __dealloc__(self):
  *         cdef nw_aligner_t *aligner = self._aligner
  *         needleman_wunsch_free(aligner)             # <<<<<<<<<<<<<<
@@ -1250,7 +1261,7 @@ static void __pyx_pf_8tuba_seq_9seq_align_2NW_2__dealloc__(struct __pyx_obj_8tub
  */
   needleman_wunsch_free(__pyx_v_aligner);
 
-  /* "tuba_seq/seq_align.pyx":57
+  /* "tuba_seq/seq_align.pyx":65
  *         self._aligner = needleman_wunsch_new()
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -1262,7 +1273,7 @@ static void __pyx_pf_8tuba_seq_9seq_align_2NW_2__dealloc__(struct __pyx_obj_8tub
   __Pyx_RefNannyFinishContext();
 }
 
-/* "tuba_seq/seq_align.pyx":61
+/* "tuba_seq/seq_align.pyx":69
  *         needleman_wunsch_free(aligner)
  * 
  *     def __init__(self, int match=1, int mismatch=-2, int gap_open=-4, int gap_extend=-1,             # <<<<<<<<<<<<<<
@@ -1379,7 +1390,7 @@ static int __pyx_pw_8tuba_seq_9seq_align_2NW_5__init__(PyObject *__pyx_v_self, P
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(1, 61, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(1, 69, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
@@ -1408,30 +1419,30 @@ static int __pyx_pw_8tuba_seq_9seq_align_2NW_5__init__(PyObject *__pyx_v_self, P
       }
     }
     if (values[0]) {
-      __pyx_v_match = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_match == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 61, __pyx_L3_error)
+      __pyx_v_match = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_match == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 69, __pyx_L3_error)
     } else {
       __pyx_v_match = ((int)1);
     }
     if (values[1]) {
-      __pyx_v_mismatch = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_mismatch == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 61, __pyx_L3_error)
+      __pyx_v_mismatch = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_mismatch == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 69, __pyx_L3_error)
     } else {
       __pyx_v_mismatch = ((int)-2);
     }
     if (values[2]) {
-      __pyx_v_gap_open = __Pyx_PyInt_As_int(values[2]); if (unlikely((__pyx_v_gap_open == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 61, __pyx_L3_error)
+      __pyx_v_gap_open = __Pyx_PyInt_As_int(values[2]); if (unlikely((__pyx_v_gap_open == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 69, __pyx_L3_error)
     } else {
       __pyx_v_gap_open = ((int)-4);
     }
     if (values[3]) {
-      __pyx_v_gap_extend = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_gap_extend == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 61, __pyx_L3_error)
+      __pyx_v_gap_extend = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_gap_extend == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 69, __pyx_L3_error)
     } else {
       __pyx_v_gap_extend = ((int)-1);
     }
     if (values[4]) {
-      __pyx_v_start_gap_penalty = __Pyx_PyObject_IsTrue(values[4]); if (unlikely((__pyx_v_start_gap_penalty == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 62, __pyx_L3_error)
+      __pyx_v_start_gap_penalty = __Pyx_PyObject_IsTrue(values[4]); if (unlikely((__pyx_v_start_gap_penalty == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 70, __pyx_L3_error)
     } else {
 
-      /* "tuba_seq/seq_align.pyx":62
+      /* "tuba_seq/seq_align.pyx":70
  * 
  *     def __init__(self, int match=1, int mismatch=-2, int gap_open=-4, int gap_extend=-1,
  *                     bint start_gap_penalty=False, bint end_gap_penalty=False,             # <<<<<<<<<<<<<<
@@ -1441,15 +1452,15 @@ static int __pyx_pw_8tuba_seq_9seq_align_2NW_5__init__(PyObject *__pyx_v_self, P
       __pyx_v_start_gap_penalty = ((int)0);
     }
     if (values[5]) {
-      __pyx_v_end_gap_penalty = __Pyx_PyObject_IsTrue(values[5]); if (unlikely((__pyx_v_end_gap_penalty == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 62, __pyx_L3_error)
+      __pyx_v_end_gap_penalty = __Pyx_PyObject_IsTrue(values[5]); if (unlikely((__pyx_v_end_gap_penalty == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 70, __pyx_L3_error)
     } else {
       __pyx_v_end_gap_penalty = ((int)0);
     }
     if (values[6]) {
-      __pyx_v_gaps_in_a = __Pyx_PyObject_IsTrue(values[6]); if (unlikely((__pyx_v_gaps_in_a == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 63, __pyx_L3_error)
+      __pyx_v_gaps_in_a = __Pyx_PyObject_IsTrue(values[6]); if (unlikely((__pyx_v_gaps_in_a == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 71, __pyx_L3_error)
     } else {
 
-      /* "tuba_seq/seq_align.pyx":63
+      /* "tuba_seq/seq_align.pyx":71
  *     def __init__(self, int match=1, int mismatch=-2, int gap_open=-4, int gap_extend=-1,
  *                     bint start_gap_penalty=False, bint end_gap_penalty=False,
  *                     bint gaps_in_a=True, bint gaps_in_b=True, bint mismatches=True, bint case_sensitive=True):             # <<<<<<<<<<<<<<
@@ -1459,24 +1470,24 @@ static int __pyx_pw_8tuba_seq_9seq_align_2NW_5__init__(PyObject *__pyx_v_self, P
       __pyx_v_gaps_in_a = ((int)1);
     }
     if (values[7]) {
-      __pyx_v_gaps_in_b = __Pyx_PyObject_IsTrue(values[7]); if (unlikely((__pyx_v_gaps_in_b == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 63, __pyx_L3_error)
+      __pyx_v_gaps_in_b = __Pyx_PyObject_IsTrue(values[7]); if (unlikely((__pyx_v_gaps_in_b == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 71, __pyx_L3_error)
     } else {
       __pyx_v_gaps_in_b = ((int)1);
     }
     if (values[8]) {
-      __pyx_v_mismatches = __Pyx_PyObject_IsTrue(values[8]); if (unlikely((__pyx_v_mismatches == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 63, __pyx_L3_error)
+      __pyx_v_mismatches = __Pyx_PyObject_IsTrue(values[8]); if (unlikely((__pyx_v_mismatches == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 71, __pyx_L3_error)
     } else {
       __pyx_v_mismatches = ((int)1);
     }
     if (values[9]) {
-      __pyx_v_case_sensitive = __Pyx_PyObject_IsTrue(values[9]); if (unlikely((__pyx_v_case_sensitive == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 63, __pyx_L3_error)
+      __pyx_v_case_sensitive = __Pyx_PyObject_IsTrue(values[9]); if (unlikely((__pyx_v_case_sensitive == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 71, __pyx_L3_error)
     } else {
       __pyx_v_case_sensitive = ((int)1);
     }
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 10, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 61, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 10, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 69, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("tuba_seq.seq_align.NW.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -1484,7 +1495,7 @@ static int __pyx_pw_8tuba_seq_9seq_align_2NW_5__init__(PyObject *__pyx_v_self, P
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(((struct __pyx_obj_8tuba_seq_9seq_align_NW *)__pyx_v_self), __pyx_v_match, __pyx_v_mismatch, __pyx_v_gap_open, __pyx_v_gap_extend, __pyx_v_start_gap_penalty, __pyx_v_end_gap_penalty, __pyx_v_gaps_in_a, __pyx_v_gaps_in_b, __pyx_v_mismatches, __pyx_v_case_sensitive);
 
-  /* "tuba_seq/seq_align.pyx":61
+  /* "tuba_seq/seq_align.pyx":69
  *         needleman_wunsch_free(aligner)
  * 
  *     def __init__(self, int match=1, int mismatch=-2, int gap_open=-4, int gap_extend=-1,             # <<<<<<<<<<<<<<
@@ -1510,7 +1521,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "tuba_seq/seq_align.pyx":69
+  /* "tuba_seq/seq_align.pyx":77
  * 
  *         cdef:
  *             int no_start_gap_penalty = 0 if start_gap_penalty else 1             # <<<<<<<<<<<<<<
@@ -1524,7 +1535,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   }
   __pyx_v_no_start_gap_penalty = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":70
+  /* "tuba_seq/seq_align.pyx":78
  *         cdef:
  *             int no_start_gap_penalty = 0 if start_gap_penalty else 1
  *             int no_end_gap_penalty = 0 if end_gap_penalty else 1             # <<<<<<<<<<<<<<
@@ -1538,7 +1549,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   }
   __pyx_v_no_end_gap_penalty = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":71
+  /* "tuba_seq/seq_align.pyx":79
  *             int no_start_gap_penalty = 0 if start_gap_penalty else 1
  *             int no_end_gap_penalty = 0 if end_gap_penalty else 1
  *             int no_gaps_in_a = 0 if gaps_in_a else 1             # <<<<<<<<<<<<<<
@@ -1552,7 +1563,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   }
   __pyx_v_no_gaps_in_a = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":72
+  /* "tuba_seq/seq_align.pyx":80
  *             int no_end_gap_penalty = 0 if end_gap_penalty else 1
  *             int no_gaps_in_a = 0 if gaps_in_a else 1
  *             int no_gaps_in_b = 0 if gaps_in_b else 1             # <<<<<<<<<<<<<<
@@ -1566,7 +1577,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   }
   __pyx_v_no_gaps_in_b = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":73
+  /* "tuba_seq/seq_align.pyx":81
  *             int no_gaps_in_a = 0 if gaps_in_a else 1
  *             int no_gaps_in_b = 0 if gaps_in_b else 1
  *             int no_mismatches = 0 if mismatches else 1             # <<<<<<<<<<<<<<
@@ -1580,7 +1591,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   }
   __pyx_v_no_mismatches = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":74
+  /* "tuba_seq/seq_align.pyx":82
  *             int no_gaps_in_b = 0 if gaps_in_b else 1
  *             int no_mismatches = 0 if mismatches else 1
  *             int c_case_sensitive = 1 if case_sensitive else 0             # <<<<<<<<<<<<<<
@@ -1594,7 +1605,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   }
   __pyx_v_c_case_sensitive = __pyx_t_1;
 
-  /* "tuba_seq/seq_align.pyx":75
+  /* "tuba_seq/seq_align.pyx":83
  *             int no_mismatches = 0 if mismatches else 1
  *             int c_case_sensitive = 1 if case_sensitive else 0
  *         cdef scoring_t *scoring = &(self._scoring)             # <<<<<<<<<<<<<<
@@ -1603,7 +1614,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
  */
   __pyx_v_scoring = (&__pyx_v_self->_scoring);
 
-  /* "tuba_seq/seq_align.pyx":77
+  /* "tuba_seq/seq_align.pyx":85
  *         cdef scoring_t *scoring = &(self._scoring)
  * 
  *         scoring_init(scoring, match, mismatch, gap_open, gap_extend,             # <<<<<<<<<<<<<<
@@ -1612,7 +1623,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
  */
   scoring_init(__pyx_v_scoring, __pyx_v_match, __pyx_v_mismatch, __pyx_v_gap_open, __pyx_v_gap_extend, __pyx_v_no_start_gap_penalty, __pyx_v_no_end_gap_penalty, __pyx_v_no_gaps_in_a, __pyx_v_no_gaps_in_b, __pyx_v_no_mismatches, __pyx_v_c_case_sensitive);
 
-  /* "tuba_seq/seq_align.pyx":61
+  /* "tuba_seq/seq_align.pyx":69
  *         needleman_wunsch_free(aligner)
  * 
  *     def __init__(self, int match=1, int mismatch=-2, int gap_open=-4, int gap_extend=-1,             # <<<<<<<<<<<<<<
@@ -1626,7 +1637,7 @@ static int __pyx_pf_8tuba_seq_9seq_align_2NW_4__init__(struct __pyx_obj_8tuba_se
   return __pyx_r;
 }
 
-/* "tuba_seq/seq_align.pyx":81
+/* "tuba_seq/seq_align.pyx":89
  *                no_gaps_in_a, no_gaps_in_b, no_mismatches, c_case_sensitive)
  * 
  *     cpdef add_mutation(self, a, b, int score):             # <<<<<<<<<<<<<<
@@ -1655,11 +1666,11 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(struct __pyx_obj_
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
   else if (unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_add_mutation); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 81, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_add_mutation); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 89, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (!PyCFunction_Check(__pyx_t_1) || (PyCFunction_GET_FUNCTION(__pyx_t_1) != (PyCFunction)__pyx_pw_8tuba_seq_9seq_align_2NW_7add_mutation)) {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_score); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 81, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_score); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 89, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_t_1);
       __pyx_t_4 = __pyx_t_1; __pyx_t_5 = NULL;
@@ -1677,7 +1688,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(struct __pyx_obj_
       #if CYTHON_FAST_PYCALL
       if (PyFunction_Check(__pyx_t_4)) {
         PyObject *__pyx_temp[4] = {__pyx_t_5, __pyx_v_a, __pyx_v_b, __pyx_t_3};
-        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_4, __pyx_temp+1-__pyx_t_6, 3+__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 81, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_4, __pyx_temp+1-__pyx_t_6, 3+__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 89, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -1686,14 +1697,14 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(struct __pyx_obj_
       #if CYTHON_FAST_PYCCALL
       if (__Pyx_PyFastCFunction_Check(__pyx_t_4)) {
         PyObject *__pyx_temp[4] = {__pyx_t_5, __pyx_v_a, __pyx_v_b, __pyx_t_3};
-        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_4, __pyx_temp+1-__pyx_t_6, 3+__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 81, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_4, __pyx_temp+1-__pyx_t_6, 3+__pyx_t_6); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 89, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       } else
       #endif
       {
-        __pyx_t_7 = PyTuple_New(3+__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 81, __pyx_L1_error)
+        __pyx_t_7 = PyTuple_New(3+__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 89, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         if (__pyx_t_5) {
           __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
@@ -1707,7 +1718,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(struct __pyx_obj_
         __Pyx_GIVEREF(__pyx_t_3);
         PyTuple_SET_ITEM(__pyx_t_7, 2+__pyx_t_6, __pyx_t_3);
         __pyx_t_3 = 0;
-        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_7, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 81, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_7, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 89, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
@@ -1720,37 +1731,37 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(struct __pyx_obj_
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "tuba_seq/seq_align.pyx":82
+  /* "tuba_seq/seq_align.pyx":90
  * 
  *     cpdef add_mutation(self, a, b, int score):
  *         char_a = a.encode('ascii')             # <<<<<<<<<<<<<<
  *         char_b = b.encode('ascii')
  *         cdef scoring_t *scoring = &(self._scoring)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_a, __pyx_n_s_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 82, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_a, __pyx_n_s_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 82, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_char_a = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "tuba_seq/seq_align.pyx":83
+  /* "tuba_seq/seq_align.pyx":91
  *     cpdef add_mutation(self, a, b, int score):
  *         char_a = a.encode('ascii')
  *         char_b = b.encode('ascii')             # <<<<<<<<<<<<<<
  *         cdef scoring_t *scoring = &(self._scoring)
  *         scoring_add_mutation(scoring, char_a[0], char_b[0], score)
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_b, __pyx_n_s_encode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 83, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_b, __pyx_n_s_encode); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_tuple__2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 83, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_tuple__2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_char_b = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "tuba_seq/seq_align.pyx":84
+  /* "tuba_seq/seq_align.pyx":92
  *         char_a = a.encode('ascii')
  *         char_b = b.encode('ascii')
  *         cdef scoring_t *scoring = &(self._scoring)             # <<<<<<<<<<<<<<
@@ -1759,24 +1770,24 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(struct __pyx_obj_
  */
   __pyx_v_scoring = (&__pyx_v_self->_scoring);
 
-  /* "tuba_seq/seq_align.pyx":85
+  /* "tuba_seq/seq_align.pyx":93
  *         char_b = b.encode('ascii')
  *         cdef scoring_t *scoring = &(self._scoring)
  *         scoring_add_mutation(scoring, char_a[0], char_b[0], score)             # <<<<<<<<<<<<<<
  * 
  *     cpdef add_neutral_N(self):
  */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_char_a, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 85, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_char_a, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_8 = __Pyx_PyInt_As_char(__pyx_t_1); if (unlikely((__pyx_t_8 == (char)-1) && PyErr_Occurred())) __PYX_ERR(1, 85, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyInt_As_char(__pyx_t_1); if (unlikely((__pyx_t_8 == (char)-1) && PyErr_Occurred())) __PYX_ERR(1, 93, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_char_b, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 85, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_char_b, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_9 = __Pyx_PyInt_As_char(__pyx_t_1); if (unlikely((__pyx_t_9 == (char)-1) && PyErr_Occurred())) __PYX_ERR(1, 85, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyInt_As_char(__pyx_t_1); if (unlikely((__pyx_t_9 == (char)-1) && PyErr_Occurred())) __PYX_ERR(1, 93, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   scoring_add_mutation(__pyx_v_scoring, __pyx_t_8, __pyx_t_9, __pyx_v_score);
 
-  /* "tuba_seq/seq_align.pyx":81
+  /* "tuba_seq/seq_align.pyx":89
  *                no_gaps_in_a, no_gaps_in_b, no_mismatches, c_case_sensitive)
  * 
  *     cpdef add_mutation(self, a, b, int score):             # <<<<<<<<<<<<<<
@@ -1838,17 +1849,17 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_7add_mutation(PyObject *__pyx
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_b)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("add_mutation", 1, 3, 3, 1); __PYX_ERR(1, 81, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("add_mutation", 1, 3, 3, 1); __PYX_ERR(1, 89, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (likely((values[2] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_score)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("add_mutation", 1, 3, 3, 2); __PYX_ERR(1, 81, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("add_mutation", 1, 3, 3, 2); __PYX_ERR(1, 89, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "add_mutation") < 0)) __PYX_ERR(1, 81, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "add_mutation") < 0)) __PYX_ERR(1, 89, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 3) {
       goto __pyx_L5_argtuple_error;
@@ -1859,11 +1870,11 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_7add_mutation(PyObject *__pyx
     }
     __pyx_v_a = values[0];
     __pyx_v_b = values[1];
-    __pyx_v_score = __Pyx_PyInt_As_int(values[2]); if (unlikely((__pyx_v_score == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 81, __pyx_L3_error)
+    __pyx_v_score = __Pyx_PyInt_As_int(values[2]); if (unlikely((__pyx_v_score == (int)-1) && PyErr_Occurred())) __PYX_ERR(1, 89, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("add_mutation", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 81, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("add_mutation", 1, 3, 3, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 89, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("tuba_seq.seq_align.NW.add_mutation", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -1882,7 +1893,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_6add_mutation(struct __pyx_ob
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("add_mutation", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(__pyx_v_self, __pyx_v_a, __pyx_v_b, __pyx_v_score, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 81, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_add_mutation(__pyx_v_self, __pyx_v_a, __pyx_v_b, __pyx_v_score, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -1899,7 +1910,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_6add_mutation(struct __pyx_ob
   return __pyx_r;
 }
 
-/* "tuba_seq/seq_align.pyx":87
+/* "tuba_seq/seq_align.pyx":95
  *         scoring_add_mutation(scoring, char_a[0], char_b[0], score)
  * 
  *     cpdef add_neutral_N(self):             # <<<<<<<<<<<<<<
@@ -1921,7 +1932,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
   else if (unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_add_neutral_N); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 87, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_add_neutral_N); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 95, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (!PyCFunction_Check(__pyx_t_1) || (PyCFunction_GET_FUNCTION(__pyx_t_1) != (PyCFunction)__pyx_pw_8tuba_seq_9seq_align_2NW_9add_neutral_N)) {
       __Pyx_XDECREF(__pyx_r);
@@ -1937,10 +1948,10 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
         }
       }
       if (__pyx_t_4) {
-        __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 87, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 95, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       } else {
-        __pyx_t_2 = __Pyx_PyObject_CallNoArg(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 87, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_CallNoArg(__pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 95, __pyx_L1_error)
       }
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -1952,7 +1963,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "tuba_seq/seq_align.pyx":88
+  /* "tuba_seq/seq_align.pyx":96
  * 
  *     cpdef add_neutral_N(self):
  *         cdef scoring_t *scoring = &(self._scoring)             # <<<<<<<<<<<<<<
@@ -1961,7 +1972,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   __pyx_v_scoring = (&__pyx_v_self->_scoring);
 
-  /* "tuba_seq/seq_align.pyx":89
+  /* "tuba_seq/seq_align.pyx":97
  *     cpdef add_neutral_N(self):
  *         cdef scoring_t *scoring = &(self._scoring)
  *         scoring_add_mutation(scoring, 'N', 'N', 0)             # <<<<<<<<<<<<<<
@@ -1970,7 +1981,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'N', 'N', 0);
 
-  /* "tuba_seq/seq_align.pyx":91
+  /* "tuba_seq/seq_align.pyx":99
  *         scoring_add_mutation(scoring, 'N', 'N', 0)
  * 
  *         scoring_add_mutation(scoring, 'N', 'A', 0)             # <<<<<<<<<<<<<<
@@ -1979,7 +1990,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'N', 'A', 0);
 
-  /* "tuba_seq/seq_align.pyx":92
+  /* "tuba_seq/seq_align.pyx":100
  * 
  *         scoring_add_mutation(scoring, 'N', 'A', 0)
  *         scoring_add_mutation(scoring, 'N', 'C', 0)             # <<<<<<<<<<<<<<
@@ -1988,7 +1999,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'N', 'C', 0);
 
-  /* "tuba_seq/seq_align.pyx":93
+  /* "tuba_seq/seq_align.pyx":101
  *         scoring_add_mutation(scoring, 'N', 'A', 0)
  *         scoring_add_mutation(scoring, 'N', 'C', 0)
  *         scoring_add_mutation(scoring, 'N', 'G', 0)             # <<<<<<<<<<<<<<
@@ -1997,7 +2008,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'N', 'G', 0);
 
-  /* "tuba_seq/seq_align.pyx":94
+  /* "tuba_seq/seq_align.pyx":102
  *         scoring_add_mutation(scoring, 'N', 'C', 0)
  *         scoring_add_mutation(scoring, 'N', 'G', 0)
  *         scoring_add_mutation(scoring, 'N', 'T', 0)             # <<<<<<<<<<<<<<
@@ -2006,7 +2017,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'N', 'T', 0);
 
-  /* "tuba_seq/seq_align.pyx":96
+  /* "tuba_seq/seq_align.pyx":104
  *         scoring_add_mutation(scoring, 'N', 'T', 0)
  * 
  *         scoring_add_mutation(scoring, 'A', 'N', 0)             # <<<<<<<<<<<<<<
@@ -2015,7 +2026,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'A', 'N', 0);
 
-  /* "tuba_seq/seq_align.pyx":97
+  /* "tuba_seq/seq_align.pyx":105
  * 
  *         scoring_add_mutation(scoring, 'A', 'N', 0)
  *         scoring_add_mutation(scoring, 'C', 'N', 0)             # <<<<<<<<<<<<<<
@@ -2024,7 +2035,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'C', 'N', 0);
 
-  /* "tuba_seq/seq_align.pyx":98
+  /* "tuba_seq/seq_align.pyx":106
  *         scoring_add_mutation(scoring, 'A', 'N', 0)
  *         scoring_add_mutation(scoring, 'C', 'N', 0)
  *         scoring_add_mutation(scoring, 'G', 'N', 0)             # <<<<<<<<<<<<<<
@@ -2033,7 +2044,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'G', 'N', 0);
 
-  /* "tuba_seq/seq_align.pyx":99
+  /* "tuba_seq/seq_align.pyx":107
  *         scoring_add_mutation(scoring, 'C', 'N', 0)
  *         scoring_add_mutation(scoring, 'G', 'N', 0)
  *         scoring_add_mutation(scoring, 'T', 'N', 0)             # <<<<<<<<<<<<<<
@@ -2042,7 +2053,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(struct __pyx_obj
  */
   scoring_add_mutation(__pyx_v_scoring, 'T', 'N', 0);
 
-  /* "tuba_seq/seq_align.pyx":87
+  /* "tuba_seq/seq_align.pyx":95
  *         scoring_add_mutation(scoring, char_a[0], char_b[0], score)
  * 
  *     cpdef add_neutral_N(self):             # <<<<<<<<<<<<<<
@@ -2085,7 +2096,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_8add_neutral_N(struct __pyx_o
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("add_neutral_N", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 87, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_add_neutral_N(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -2102,7 +2113,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_8add_neutral_N(struct __pyx_o
   return __pyx_r;
 }
 
-/* "tuba_seq/seq_align.pyx":101
+/* "tuba_seq/seq_align.pyx":109
  *         scoring_add_mutation(scoring, 'T', 'N', 0)
  * 
  *     cpdef char_align(self, char *seq_a, char *seq_b):             # <<<<<<<<<<<<<<
@@ -2134,13 +2145,13 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
   else if (unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_char_align); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 101, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_char_align); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (!PyCFunction_Check(__pyx_t_1) || (PyCFunction_GET_FUNCTION(__pyx_t_1) != (PyCFunction)__pyx_pw_8tuba_seq_9seq_align_2NW_11char_align)) {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_3 = __Pyx_PyBytes_FromString(__pyx_v_seq_a); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 101, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyBytes_FromString(__pyx_v_seq_a); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 109, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = __Pyx_PyBytes_FromString(__pyx_v_seq_b); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 101, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyBytes_FromString(__pyx_v_seq_b); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 109, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_1);
       __pyx_t_5 = __pyx_t_1; __pyx_t_6 = NULL;
@@ -2158,7 +2169,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
       #if CYTHON_FAST_PYCALL
       if (PyFunction_Check(__pyx_t_5)) {
         PyObject *__pyx_temp[3] = {__pyx_t_6, __pyx_t_3, __pyx_t_4};
-        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 101, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 109, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -2168,7 +2179,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
       #if CYTHON_FAST_PYCCALL
       if (__Pyx_PyFastCFunction_Check(__pyx_t_5)) {
         PyObject *__pyx_temp[3] = {__pyx_t_6, __pyx_t_3, __pyx_t_4};
-        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 101, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 109, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -2176,7 +2187,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
       } else
       #endif
       {
-        __pyx_t_8 = PyTuple_New(2+__pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 101, __pyx_L1_error)
+        __pyx_t_8 = PyTuple_New(2+__pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 109, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         if (__pyx_t_6) {
           __Pyx_GIVEREF(__pyx_t_6); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_6); __pyx_t_6 = NULL;
@@ -2187,7 +2198,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
         PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_7, __pyx_t_4);
         __pyx_t_3 = 0;
         __pyx_t_4 = 0;
-        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 101, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 109, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       }
@@ -2200,7 +2211,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "tuba_seq/seq_align.pyx":102
+  /* "tuba_seq/seq_align.pyx":110
  * 
  *     cpdef char_align(self, char *seq_a, char *seq_b):
  *         cdef size_t len_a = len(seq_a)             # <<<<<<<<<<<<<<
@@ -2210,7 +2221,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
   __pyx_t_9 = strlen(__pyx_v_seq_a); 
   __pyx_v_len_a = __pyx_t_9;
 
-  /* "tuba_seq/seq_align.pyx":103
+  /* "tuba_seq/seq_align.pyx":111
  *     cpdef char_align(self, char *seq_a, char *seq_b):
  *         cdef size_t len_a = len(seq_a)
  *         cdef size_t len_b = len(seq_b)             # <<<<<<<<<<<<<<
@@ -2220,7 +2231,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
   __pyx_t_9 = strlen(__pyx_v_seq_b); 
   __pyx_v_len_b = __pyx_t_9;
 
-  /* "tuba_seq/seq_align.pyx":104
+  /* "tuba_seq/seq_align.pyx":112
  *         cdef size_t len_a = len(seq_a)
  *         cdef size_t len_b = len(seq_b)
  *         cdef alignment_t *result = alignment_create(len_a + len_b)             # <<<<<<<<<<<<<<
@@ -2229,7 +2240,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
  */
   __pyx_v_result = alignment_create((__pyx_v_len_a + __pyx_v_len_b));
 
-  /* "tuba_seq/seq_align.pyx":105
+  /* "tuba_seq/seq_align.pyx":113
  *         cdef size_t len_b = len(seq_b)
  *         cdef alignment_t *result = alignment_create(len_a + len_b)
  *         cdef scoring_t *scoring = &(self._scoring)             # <<<<<<<<<<<<<<
@@ -2238,7 +2249,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
  */
   __pyx_v_scoring = (&__pyx_v_self->_scoring);
 
-  /* "tuba_seq/seq_align.pyx":106
+  /* "tuba_seq/seq_align.pyx":114
  *         cdef alignment_t *result = alignment_create(len_a + len_b)
  *         cdef scoring_t *scoring = &(self._scoring)
  *         cdef nw_aligner_t *aligner = self._aligner             # <<<<<<<<<<<<<<
@@ -2248,7 +2259,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
   __pyx_t_10 = __pyx_v_self->_aligner;
   __pyx_v_aligner = __pyx_t_10;
 
-  /* "tuba_seq/seq_align.pyx":107
+  /* "tuba_seq/seq_align.pyx":115
  *         cdef scoring_t *scoring = &(self._scoring)
  *         cdef nw_aligner_t *aligner = self._aligner
  *         needleman_wunsch_align(seq_a, seq_b, scoring, aligner, result)             # <<<<<<<<<<<<<<
@@ -2257,7 +2268,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
  */
   needleman_wunsch_align(__pyx_v_seq_a, __pyx_v_seq_b, __pyx_v_scoring, __pyx_v_aligner, __pyx_v_result);
 
-  /* "tuba_seq/seq_align.pyx":108
+  /* "tuba_seq/seq_align.pyx":116
  *         cdef nw_aligner_t *aligner = self._aligner
  *         needleman_wunsch_align(seq_a, seq_b, scoring, aligner, result)
  *         return result.result_a, result.result_b, result.score             # <<<<<<<<<<<<<<
@@ -2265,13 +2276,13 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
  *     cpdef align(self, a, b):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_result->result_a); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 108, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBytes_FromString(__pyx_v_result->result_a); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyBytes_FromString(__pyx_v_result->result_b); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 108, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBytes_FromString(__pyx_v_result->result_b); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyInt_From_int(__pyx_v_result->score); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 108, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyInt_From_int(__pyx_v_result->score); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_8 = PyTuple_New(3); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 108, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(3); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_GIVEREF(__pyx_t_1);
   PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_1);
@@ -2286,7 +2297,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_align(struct __pyx_obj_8t
   __pyx_t_8 = 0;
   goto __pyx_L0;
 
-  /* "tuba_seq/seq_align.pyx":101
+  /* "tuba_seq/seq_align.pyx":109
  *         scoring_add_mutation(scoring, 'T', 'N', 0)
  * 
  *     cpdef char_align(self, char *seq_a, char *seq_b):             # <<<<<<<<<<<<<<
@@ -2342,11 +2353,11 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_11char_align(PyObject *__pyx_
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_seq_b)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("char_align", 1, 2, 2, 1); __PYX_ERR(1, 101, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("char_align", 1, 2, 2, 1); __PYX_ERR(1, 109, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "char_align") < 0)) __PYX_ERR(1, 101, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "char_align") < 0)) __PYX_ERR(1, 109, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -2354,12 +2365,12 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_11char_align(PyObject *__pyx_
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_seq_a = __Pyx_PyObject_AsWritableString(values[0]); if (unlikely((!__pyx_v_seq_a) && PyErr_Occurred())) __PYX_ERR(1, 101, __pyx_L3_error)
-    __pyx_v_seq_b = __Pyx_PyObject_AsWritableString(values[1]); if (unlikely((!__pyx_v_seq_b) && PyErr_Occurred())) __PYX_ERR(1, 101, __pyx_L3_error)
+    __pyx_v_seq_a = __Pyx_PyObject_AsWritableString(values[0]); if (unlikely((!__pyx_v_seq_a) && PyErr_Occurred())) __PYX_ERR(1, 109, __pyx_L3_error)
+    __pyx_v_seq_b = __Pyx_PyObject_AsWritableString(values[1]); if (unlikely((!__pyx_v_seq_b) && PyErr_Occurred())) __PYX_ERR(1, 109, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("char_align", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 101, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("char_align", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 109, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("tuba_seq.seq_align.NW.char_align", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -2378,7 +2389,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_10char_align(struct __pyx_obj
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("char_align", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_char_align(__pyx_v_self, __pyx_v_seq_a, __pyx_v_seq_b, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 101, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_char_align(__pyx_v_self, __pyx_v_seq_a, __pyx_v_seq_b, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -2395,7 +2406,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_10char_align(struct __pyx_obj
   return __pyx_r;
 }
 
-/* "tuba_seq/seq_align.pyx":110
+/* "tuba_seq/seq_align.pyx":118
  *         return result.result_a, result.result_b, result.score
  * 
  *     cpdef align(self, a, b):             # <<<<<<<<<<<<<<
@@ -2424,7 +2435,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
   else if (unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_align); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 110, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_align); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 118, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (!PyCFunction_Check(__pyx_t_1) || (PyCFunction_GET_FUNCTION(__pyx_t_1) != (PyCFunction)__pyx_pw_8tuba_seq_9seq_align_2NW_13align)) {
       __Pyx_XDECREF(__pyx_r);
@@ -2444,7 +2455,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
       #if CYTHON_FAST_PYCALL
       if (PyFunction_Check(__pyx_t_3)) {
         PyObject *__pyx_temp[3] = {__pyx_t_4, __pyx_v_a, __pyx_v_b};
-        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_5, 2+__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 110, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_5, 2+__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 118, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_GOTREF(__pyx_t_2);
       } else
@@ -2452,13 +2463,13 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
       #if CYTHON_FAST_PYCCALL
       if (__Pyx_PyFastCFunction_Check(__pyx_t_3)) {
         PyObject *__pyx_temp[3] = {__pyx_t_4, __pyx_v_a, __pyx_v_b};
-        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_5, 2+__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 110, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_5, 2+__pyx_t_5); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 118, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_GOTREF(__pyx_t_2);
       } else
       #endif
       {
-        __pyx_t_6 = PyTuple_New(2+__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 110, __pyx_L1_error)
+        __pyx_t_6 = PyTuple_New(2+__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 118, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         if (__pyx_t_4) {
           __Pyx_GIVEREF(__pyx_t_4); PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_4); __pyx_t_4 = NULL;
@@ -2469,7 +2480,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
         __Pyx_INCREF(__pyx_v_b);
         __Pyx_GIVEREF(__pyx_v_b);
         PyTuple_SET_ITEM(__pyx_t_6, 1+__pyx_t_5, __pyx_v_b);
-        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 110, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_6, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 118, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
@@ -2482,26 +2493,26 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "tuba_seq/seq_align.pyx":111
+  /* "tuba_seq/seq_align.pyx":119
  * 
  *     cpdef align(self, a, b):
  *         r_a, r_b, score = self.char_align(a.encode('ascii'), b.encode('ascii'))             # <<<<<<<<<<<<<<
  *         return r_a.decode('ascii'), r_b.decode('ascii'), score
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_a, __pyx_n_s_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_a, __pyx_n_s_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__3, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__3, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_t_2); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(1, 111, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_b, __pyx_n_s_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_t_2); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(1, 119, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_b, __pyx_n_s_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__4, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_8 = __Pyx_PyObject_AsWritableString(__pyx_t_3); if (unlikely((!__pyx_t_8) && PyErr_Occurred())) __PYX_ERR(1, 111, __pyx_L1_error)
-  __pyx_t_1 = ((struct __pyx_vtabstruct_8tuba_seq_9seq_align_NW *)__pyx_v_self->__pyx_vtab)->char_align(__pyx_v_self, __pyx_t_7, __pyx_t_8, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_AsWritableString(__pyx_t_3); if (unlikely((!__pyx_t_8) && PyErr_Occurred())) __PYX_ERR(1, 119, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_8tuba_seq_9seq_align_NW *)__pyx_v_self->__pyx_vtab)->char_align(__pyx_v_self, __pyx_t_7, __pyx_t_8, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -2515,7 +2526,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
     if (unlikely(size != 3)) {
       if (size > 3) __Pyx_RaiseTooManyValuesError(3);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(1, 111, __pyx_L1_error)
+      __PYX_ERR(1, 119, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -2531,17 +2542,17 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
     __Pyx_INCREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_t_6);
     #else
-    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 111, __pyx_L1_error)
+    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 111, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 111, __pyx_L1_error)
+    __pyx_t_6 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 111, __pyx_L1_error)
+    __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 119, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_9 = Py_TYPE(__pyx_t_4)->tp_iternext;
@@ -2551,7 +2562,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
     __Pyx_GOTREF(__pyx_t_2);
     index = 2; __pyx_t_6 = __pyx_t_9(__pyx_t_4); if (unlikely(!__pyx_t_6)) goto __pyx_L3_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_4), 3) < 0) __PYX_ERR(1, 111, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_4), 3) < 0) __PYX_ERR(1, 119, __pyx_L1_error)
     __pyx_t_9 = NULL;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     goto __pyx_L4_unpacking_done;
@@ -2559,7 +2570,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_9 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(1, 111, __pyx_L1_error)
+    __PYX_ERR(1, 119, __pyx_L1_error)
     __pyx_L4_unpacking_done:;
   }
   __pyx_v_r_a = __pyx_t_3;
@@ -2569,7 +2580,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
   __pyx_v_score = __pyx_t_6;
   __pyx_t_6 = 0;
 
-  /* "tuba_seq/seq_align.pyx":112
+  /* "tuba_seq/seq_align.pyx":120
  *     cpdef align(self, a, b):
  *         r_a, r_b, score = self.char_align(a.encode('ascii'), b.encode('ascii'))
  *         return r_a.decode('ascii'), r_b.decode('ascii'), score             # <<<<<<<<<<<<<<
@@ -2577,17 +2588,17 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
  *     cpdef char_score(self, char *seq_a, char *seq_b):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_r_a, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_r_a, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__5, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__5, NULL); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_r_b, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_r_b, __pyx_n_s_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_6);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_6);
@@ -2602,7 +2613,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_align(struct __pyx_obj_8tuba_s
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tuba_seq/seq_align.pyx":110
+  /* "tuba_seq/seq_align.pyx":118
  *         return result.result_a, result.result_b, result.score
  * 
  *     cpdef align(self, a, b):             # <<<<<<<<<<<<<<
@@ -2659,11 +2670,11 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_13align(PyObject *__pyx_v_sel
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_b)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("align", 1, 2, 2, 1); __PYX_ERR(1, 110, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("align", 1, 2, 2, 1); __PYX_ERR(1, 118, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "align") < 0)) __PYX_ERR(1, 110, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "align") < 0)) __PYX_ERR(1, 118, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -2676,7 +2687,7 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_13align(PyObject *__pyx_v_sel
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("align", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 110, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("align", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 118, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("tuba_seq.seq_align.NW.align", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -2695,7 +2706,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_12align(struct __pyx_obj_8tub
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("align", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_align(__pyx_v_self, __pyx_v_a, __pyx_v_b, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 110, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_align(__pyx_v_self, __pyx_v_a, __pyx_v_b, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 118, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -2712,7 +2723,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_12align(struct __pyx_obj_8tub
   return __pyx_r;
 }
 
-/* "tuba_seq/seq_align.pyx":114
+/* "tuba_seq/seq_align.pyx":122
  *         return r_a.decode('ascii'), r_b.decode('ascii'), score
  * 
  *     cpdef char_score(self, char *seq_a, char *seq_b):             # <<<<<<<<<<<<<<
@@ -2744,13 +2755,13 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
   if (unlikely(__pyx_skip_dispatch)) ;
   /* Check if overridden in Python */
   else if (unlikely(Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0)) {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_char_score); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 114, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_char_score); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 122, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if (!PyCFunction_Check(__pyx_t_1) || (PyCFunction_GET_FUNCTION(__pyx_t_1) != (PyCFunction)__pyx_pw_8tuba_seq_9seq_align_2NW_15char_score)) {
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_3 = __Pyx_PyBytes_FromString(__pyx_v_seq_a); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 114, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyBytes_FromString(__pyx_v_seq_a); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 122, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = __Pyx_PyBytes_FromString(__pyx_v_seq_b); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 114, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyBytes_FromString(__pyx_v_seq_b); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 122, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_1);
       __pyx_t_5 = __pyx_t_1; __pyx_t_6 = NULL;
@@ -2768,7 +2779,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
       #if CYTHON_FAST_PYCALL
       if (PyFunction_Check(__pyx_t_5)) {
         PyObject *__pyx_temp[3] = {__pyx_t_6, __pyx_t_3, __pyx_t_4};
-        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 114, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 122, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -2778,7 +2789,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
       #if CYTHON_FAST_PYCCALL
       if (__Pyx_PyFastCFunction_Check(__pyx_t_5)) {
         PyObject *__pyx_temp[3] = {__pyx_t_6, __pyx_t_3, __pyx_t_4};
-        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 114, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 122, __pyx_L1_error)
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -2786,7 +2797,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
       } else
       #endif
       {
-        __pyx_t_8 = PyTuple_New(2+__pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 114, __pyx_L1_error)
+        __pyx_t_8 = PyTuple_New(2+__pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 122, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         if (__pyx_t_6) {
           __Pyx_GIVEREF(__pyx_t_6); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_6); __pyx_t_6 = NULL;
@@ -2797,7 +2808,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
         PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_7, __pyx_t_4);
         __pyx_t_3 = 0;
         __pyx_t_4 = 0;
-        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 114, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 122, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       }
@@ -2810,7 +2821,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "tuba_seq/seq_align.pyx":115
+  /* "tuba_seq/seq_align.pyx":123
  * 
  *     cpdef char_score(self, char *seq_a, char *seq_b):
  *         cdef size_t len_a = len(seq_a)             # <<<<<<<<<<<<<<
@@ -2820,7 +2831,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
   __pyx_t_9 = strlen(__pyx_v_seq_a); 
   __pyx_v_len_a = __pyx_t_9;
 
-  /* "tuba_seq/seq_align.pyx":116
+  /* "tuba_seq/seq_align.pyx":124
  *     cpdef char_score(self, char *seq_a, char *seq_b):
  *         cdef size_t len_a = len(seq_a)
  *         cdef size_t len_b = len(seq_b)             # <<<<<<<<<<<<<<
@@ -2830,7 +2841,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
   __pyx_t_9 = strlen(__pyx_v_seq_b); 
   __pyx_v_len_b = __pyx_t_9;
 
-  /* "tuba_seq/seq_align.pyx":117
+  /* "tuba_seq/seq_align.pyx":125
  *         cdef size_t len_a = len(seq_a)
  *         cdef size_t len_b = len(seq_b)
  *         cdef alignment_t *result = alignment_create(len_a + len_b)             # <<<<<<<<<<<<<<
@@ -2839,7 +2850,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
  */
   __pyx_v_result = alignment_create((__pyx_v_len_a + __pyx_v_len_b));
 
-  /* "tuba_seq/seq_align.pyx":118
+  /* "tuba_seq/seq_align.pyx":126
  *         cdef size_t len_b = len(seq_b)
  *         cdef alignment_t *result = alignment_create(len_a + len_b)
  *         cdef scoring_t *scoring = &(self._scoring)             # <<<<<<<<<<<<<<
@@ -2848,7 +2859,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
  */
   __pyx_v_scoring = (&__pyx_v_self->_scoring);
 
-  /* "tuba_seq/seq_align.pyx":119
+  /* "tuba_seq/seq_align.pyx":127
  *         cdef alignment_t *result = alignment_create(len_a + len_b)
  *         cdef scoring_t *scoring = &(self._scoring)
  *         cdef nw_aligner_t *aligner = self._aligner             # <<<<<<<<<<<<<<
@@ -2858,7 +2869,7 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
   __pyx_t_10 = __pyx_v_self->_aligner;
   __pyx_v_aligner = __pyx_t_10;
 
-  /* "tuba_seq/seq_align.pyx":120
+  /* "tuba_seq/seq_align.pyx":128
  *         cdef scoring_t *scoring = &(self._scoring)
  *         cdef nw_aligner_t *aligner = self._aligner
  *         needleman_wunsch_align(seq_a, seq_b, scoring, aligner, result)             # <<<<<<<<<<<<<<
@@ -2867,20 +2878,20 @@ static PyObject *__pyx_f_8tuba_seq_9seq_align_2NW_char_score(struct __pyx_obj_8t
  */
   needleman_wunsch_align(__pyx_v_seq_a, __pyx_v_seq_b, __pyx_v_scoring, __pyx_v_aligner, __pyx_v_result);
 
-  /* "tuba_seq/seq_align.pyx":121
+  /* "tuba_seq/seq_align.pyx":129
  *         cdef nw_aligner_t *aligner = self._aligner
  *         needleman_wunsch_align(seq_a, seq_b, scoring, aligner, result)
  *         return result.score             # <<<<<<<<<<<<<<
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_result->score); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 121, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_result->score); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "tuba_seq/seq_align.pyx":114
+  /* "tuba_seq/seq_align.pyx":122
  *         return r_a.decode('ascii'), r_b.decode('ascii'), score
  * 
  *     cpdef char_score(self, char *seq_a, char *seq_b):             # <<<<<<<<<<<<<<
@@ -2936,11 +2947,11 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_15char_score(PyObject *__pyx_
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_seq_b)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("char_score", 1, 2, 2, 1); __PYX_ERR(1, 114, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("char_score", 1, 2, 2, 1); __PYX_ERR(1, 122, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "char_score") < 0)) __PYX_ERR(1, 114, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "char_score") < 0)) __PYX_ERR(1, 122, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -2948,12 +2959,12 @@ static PyObject *__pyx_pw_8tuba_seq_9seq_align_2NW_15char_score(PyObject *__pyx_
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_seq_a = __Pyx_PyObject_AsWritableString(values[0]); if (unlikely((!__pyx_v_seq_a) && PyErr_Occurred())) __PYX_ERR(1, 114, __pyx_L3_error)
-    __pyx_v_seq_b = __Pyx_PyObject_AsWritableString(values[1]); if (unlikely((!__pyx_v_seq_b) && PyErr_Occurred())) __PYX_ERR(1, 114, __pyx_L3_error)
+    __pyx_v_seq_a = __Pyx_PyObject_AsWritableString(values[0]); if (unlikely((!__pyx_v_seq_a) && PyErr_Occurred())) __PYX_ERR(1, 122, __pyx_L3_error)
+    __pyx_v_seq_b = __Pyx_PyObject_AsWritableString(values[1]); if (unlikely((!__pyx_v_seq_b) && PyErr_Occurred())) __PYX_ERR(1, 122, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("char_score", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 114, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("char_score", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(1, 122, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("tuba_seq.seq_align.NW.char_score", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -2972,7 +2983,7 @@ static PyObject *__pyx_pf_8tuba_seq_9seq_align_2NW_14char_score(struct __pyx_obj
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("char_score", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_char_score(__pyx_v_self, __pyx_v_seq_a, __pyx_v_seq_b, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 114, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_8tuba_seq_9seq_align_2NW_char_score(__pyx_v_self, __pyx_v_seq_a, __pyx_v_seq_b, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -3287,53 +3298,53 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "tuba_seq/seq_align.pyx":82
+  /* "tuba_seq/seq_align.pyx":90
  * 
  *     cpdef add_mutation(self, a, b, int score):
  *         char_a = a.encode('ascii')             # <<<<<<<<<<<<<<
  *         char_b = b.encode('ascii')
  *         cdef scoring_t *scoring = &(self._scoring)
  */
-  __pyx_tuple_ = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple_)) __PYX_ERR(1, 82, __pyx_L1_error)
+  __pyx_tuple_ = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple_)) __PYX_ERR(1, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple_);
   __Pyx_GIVEREF(__pyx_tuple_);
 
-  /* "tuba_seq/seq_align.pyx":83
+  /* "tuba_seq/seq_align.pyx":91
  *     cpdef add_mutation(self, a, b, int score):
  *         char_a = a.encode('ascii')
  *         char_b = b.encode('ascii')             # <<<<<<<<<<<<<<
  *         cdef scoring_t *scoring = &(self._scoring)
  *         scoring_add_mutation(scoring, char_a[0], char_b[0], score)
  */
-  __pyx_tuple__2 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(1, 83, __pyx_L1_error)
+  __pyx_tuple__2 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(1, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__2);
   __Pyx_GIVEREF(__pyx_tuple__2);
 
-  /* "tuba_seq/seq_align.pyx":111
+  /* "tuba_seq/seq_align.pyx":119
  * 
  *     cpdef align(self, a, b):
  *         r_a, r_b, score = self.char_align(a.encode('ascii'), b.encode('ascii'))             # <<<<<<<<<<<<<<
  *         return r_a.decode('ascii'), r_b.decode('ascii'), score
  * 
  */
-  __pyx_tuple__3 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__3)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_tuple__3 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__3)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__3);
   __Pyx_GIVEREF(__pyx_tuple__3);
-  __pyx_tuple__4 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__4)) __PYX_ERR(1, 111, __pyx_L1_error)
+  __pyx_tuple__4 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__4)) __PYX_ERR(1, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__4);
   __Pyx_GIVEREF(__pyx_tuple__4);
 
-  /* "tuba_seq/seq_align.pyx":112
+  /* "tuba_seq/seq_align.pyx":120
  *     cpdef align(self, a, b):
  *         r_a, r_b, score = self.char_align(a.encode('ascii'), b.encode('ascii'))
  *         return r_a.decode('ascii'), r_b.decode('ascii'), score             # <<<<<<<<<<<<<<
  * 
  *     cpdef char_score(self, char *seq_a, char *seq_b):
  */
-  __pyx_tuple__5 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__5)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_tuple__5 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__5)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__5);
   __Pyx_GIVEREF(__pyx_tuple__5);
-  __pyx_tuple__6 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(1, 112, __pyx_L1_error)
+  __pyx_tuple__6 = PyTuple_Pack(1, __pyx_n_s_ascii); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(1, 120, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__6);
   __Pyx_GIVEREF(__pyx_tuple__6);
 
@@ -3512,11 +3523,11 @@ static int __pyx_pymod_exec_seq_align(PyObject *__pyx_pyinit_module)
   __pyx_vtable_8tuba_seq_9seq_align_NW.char_align = (PyObject *(*)(struct __pyx_obj_8tuba_seq_9seq_align_NW *, char *, char *, int __pyx_skip_dispatch))__pyx_f_8tuba_seq_9seq_align_2NW_char_align;
   __pyx_vtable_8tuba_seq_9seq_align_NW.align = (PyObject *(*)(struct __pyx_obj_8tuba_seq_9seq_align_NW *, PyObject *, PyObject *, int __pyx_skip_dispatch))__pyx_f_8tuba_seq_9seq_align_2NW_align;
   __pyx_vtable_8tuba_seq_9seq_align_NW.char_score = (PyObject *(*)(struct __pyx_obj_8tuba_seq_9seq_align_NW *, char *, char *, int __pyx_skip_dispatch))__pyx_f_8tuba_seq_9seq_align_2NW_char_score;
-  if (PyType_Ready(&__pyx_type_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 50, __pyx_L1_error)
+  if (PyType_Ready(&__pyx_type_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 58, __pyx_L1_error)
   __pyx_type_8tuba_seq_9seq_align_NW.tp_print = 0;
-  if (__Pyx_SetVtable(__pyx_type_8tuba_seq_9seq_align_NW.tp_dict, __pyx_vtabptr_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 50, __pyx_L1_error)
-  if (PyObject_SetAttrString(__pyx_m, "NW", (PyObject *)&__pyx_type_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 50, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 50, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_type_8tuba_seq_9seq_align_NW.tp_dict, __pyx_vtabptr_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 58, __pyx_L1_error)
+  if (PyObject_SetAttrString(__pyx_m, "NW", (PyObject *)&__pyx_type_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 58, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_8tuba_seq_9seq_align_NW) < 0) __PYX_ERR(1, 58, __pyx_L1_error)
   __pyx_ptype_8tuba_seq_9seq_align_NW = &__pyx_type_8tuba_seq_9seq_align_NW;
   /*--- Type import code ---*/
   /*--- Variable import code ---*/

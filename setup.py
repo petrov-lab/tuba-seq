@@ -19,5 +19,5 @@ setup(  name='tuba_seq',
             'powerlaw',
             'biopython',
             'progressbar2'],
-        version=1.0) 
+        version='1.0') 
 

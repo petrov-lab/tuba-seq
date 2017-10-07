@@ -70,6 +70,9 @@ if args.find_order:
     models = map(model_fit, orders)
     R2 = pd.Series([model.rsquared_adj for model in models], index=orders)
     args.order = R2.argmax()
+    Log.line_break()
+    Log("Comparison of models of GC-bias")
+    Log.line_break()
     Log('Order | Adj. R2 | To be used')
     for order, r2_i in R2.iteritems():
         Log("{:}      {:.2%}      {:}".format(order, r2_i, '*' if order == args.order else ''))
@@ -142,7 +145,7 @@ FDR = false_positives/(false_positives + len(true_spikes))
 Log("""Estimated FDR: {:.1%} (Based on the number of unexpected spike-in barcodes that passed the final filter.)""".format(FDR, args.final_filter), True)
 
 final.to_csv(args.full_out_file+'.gz', compression='gzip')
-tumor_df = clean.query('pass_filter and target != "Spike"').reset_index()[['Mouse', 'target', 'barcode', 'Cells']]
+tumor_df = final.query('pass_filter and target != "Spike"').reset_index()[['Mouse', 'target', 'barcode', 'Cells']]
 tumor_df.to_csv(args.simple_out_file+'.gz', index=False, compression='gzip')
 tumors = tumor_df.set_index(["Mouse", 'target', 'barcode'])["Cells"]
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env RScript
+#!/usr/bin/env Rscript
 # 
 # INSTALL_DADA2.R 
 #

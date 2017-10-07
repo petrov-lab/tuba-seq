@@ -126,7 +126,6 @@ def cprint(s): print(s.decode('ascii'))
 c_gap = '-'.encode('ascii') 
 c_N = 'N'.encode('ascii') 
 
-def infer_master_read(DNAs):
 
 class MasterRead(object):
     def __init__(self, master_read, args):
@@ -142,10 +141,10 @@ class MasterRead(object):
         self.min_align_score = args.min_align_score
 
     @classmethod
-    def infer_from_DNAs(cls, DNAs, args):
+    def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.75):
         counts = pd.concat({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
         PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
-        master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > 0.75 else 'N'))
+        master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
         return cls(master_read, args)
 
     def find_start_stop(self, seq): 

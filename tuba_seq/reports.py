@@ -2,34 +2,32 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from graphs import text_color_legend
+from tuba_seq.graphs import text_color_legend
 from scipy import stats 
 
 def contamination(tumor_numbers, alpha=0.05):
+    from statsmodels.formula.api import ols
+    
     M = tumor_numbers.unstack(level='Mouse')
     I = M.notnull()
     N_mice = len(I.columns)
-    
     m = N_mice*(N_mice - 1)/2
 
     def find_contaminants(S_m):
         N = S_m.sum()
-        I_r = I.drop(S_m.name, axis=1)
-        Overlap = I_r.mul(S_m, axis=0)
-        N_o = Overlap.sum()
-        D = I_r.sum() + N - N_o
-        M_o = int(round(N_o.median()))
-        M_D = int(round(D.median()))
-
-        df = pd.DataFrame({mouse:stats.fisher_exact( [[N_o_i, D[mouse]], [M_o, M_D]], 
-            alternative='greater') for mouse, N_o_i in N_o.items() }, index=pd.Index(['OR', 'p_value'], name='Statistic')).T
-        df.index.names = ['is contaminated by']
-        df['Size Ratio'] = Overlap.apply(lambda O_i: M.loc[O_i, S_m.name].mean() / M.loc[O_i, O_i.name].mean(), axis=1)
-        
-        return df.query("p_value < @alpha/@m").stack()        
-        #return df.loc[df['Size Ratio'] >= 1].query("p_value < @alpha/@m").stack()        
-    
-    return I.apply(find_contaminants, axis=1).stack().unstack('Statistic')
+        I_other = I.drop(S_m.name, axis=1)
+        Overlap = I_other.mul(S_m, axis=0)
+        N_overlap = Overlap.sum()
+        N_both = I_other.sum() + N - N_overlap
+        df = pd.DataFrame(dict(N_both=N_both, enrichment=N_overlap/N_both))
+        regression = ols("enrichment ~ N_both", data=df).fit()
+        out = regression.outlier_test()
+        out.index.names = ['is contaminated by']
+        out.columns.names = ['Statistic']
+        out['p_value'] = out['unadj_p']*m
+        out['Size_Ratio'] = Overlap.apply(lambda Overlap_i: M.loc[Overlap_i.values, S_m.name].mean() / M.loc[Overlap_i.values, Overlap_i.name].mean(), axis=0)
+        return out.query('student_resid > 1 and Size_Ratio > 1 and p_value < '+str(alpha))[['p_value', 'Size_Ratio']]
+    return pd.concat({mouse:find_contaminants(S_m) for mouse, S_m in I.iteritems()}, names=['Mouse'])
 
 def barcode_diversity(tumor_numbers, plot=True):
     sns.set_style('whitegrid')

@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import io, sys, collections
 
+inerts = ['Neo1', 'Neo2', 'Neo3', 'NT1', 'NT3']
+percentile_tiers = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99])
+
 def LN_mean(data):
     cdef:
         ndarray[dtype=double, ndim=1] x = np.array(data)
@@ -14,9 +17,7 @@ def LN_mean(data):
     X2 = LN_x.dot(LN_x)/L - X*X
     return np.exp(X + 0.5*X2)
 
-tiers = np.array([0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99])
-
-def percentiles(S, tiers=tiers):
+def percentiles(S, tiers=percentile_tiers):
     out = S.quantile(q=tiers) 
     final = pd.Series(out.values, index=out.index.map(lambda s: '{:2g}'.format(s*100)))
     final.index.names = ['Percentile']
@@ -79,17 +80,41 @@ def PC1_explained_variance(S, pca=PCA()):
     return pca.explained_variance_ratio_[0]
 
 def series_ix(S, **kargs):
-    slicer = pd.Series(len(S.index.names)*[slice(None)], index=S.index.names)
-    slicer.update(pd.Series(kargs))
-    #names = list(S.index.names)
-    #slices = len(names)*[slice(None)]
-    #for k, v in kargs.items():
-    #    slices[names.index(k)] = v
-    #return S.loc.__getitem__(tuple(slices))
-    return S.loc.__getitem__(tuple(slicer.values))
-
-inerts = ['Neo1', 'Neo2', 'Neo3', 'NT1', 'NT3']
+    return S.loc[(kargs.get(ix, slice(None)) for ix in S.index.names)] 
 
 def inert_normalize(S, estimator='mean', inerts=inerts):
     N = S.loc[S.index.get_level_values('target').isin(inerts)].agg(estimator)
     return S/N
+
+def identify_outliers_by_target_profile(normalized_tumors, metric=LN_mean, method='Mahalanobis', alpha=0.05, inerts=inerts):
+    from tuba_seq.bootstrap import sample
+    from scipy.stats import combine_pvalues
+
+    expected = normalized_tumors.groupby(level='target').agg(metric)
+
+    def mouse_specific(t):
+        return t.groupby(level=['Mouse', 'target']).agg(metric).groupby(level='Mouse').transform(lambda S: S - expected.values)
+        
+    m = len(normalized_tumors.groupby(level=['target', 'Mouse']))
+    
+    bs = sample(normalized_tumors, mouse_specific, min_pvalue=alpha/m)
+
+    pscores = bs.pscores(null_hypothesis=0, two_sided=True)
+    pvals = pscores.groupby(level='Mouse').agg(lambda S: combine_pvalues(S)[1])*m
+    outliers = bs.true_estimate.unstack(level='target').loc[pvals < alpha]
+    if len(outliers) == 0:
+        print("Did not find outliers")
+        return None
+
+    outliers.insert(0, 'p-value', pvals.loc[pvals < alpha])
+
+    untransformed_outlier_bootstraps = bs[pvals < alpha].T.groupby(level='Mouse').transform(lambda S: S + expected.values).T
+        # Since we calculated all these bootstraps, I'm going to hack the bootstrap object to see if any of the active
+        # sgRNAs exhibit increased tumor size.
+    bs.bootstrap_samples = untransformed_outlier_bootstraps
+    most_active_sgRNA_pscore = bs.pscores(null_hypothesis=1, two_sided=False).groupby(level='Mouse').agg(
+                                    lambda S: S.loc[-S.index.get_level_values("target").isin(inerts)].min())
+    
+    outliers.insert(0, 'Cas9 Activity?', most_active_sgRNA_pscore.replace({True:'yes', False:'no'}))
+
+    return outliers

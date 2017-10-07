@@ -14,6 +14,9 @@ def close_log_file(file_object, start_time):
     file_object.close()
 
 class logPrint(object):
+    def line_break(self):
+        self.f.write(80*'-'+'\n')
+
     def __init__(self, input_args, filename=None):
         import __main__ as main 
         import os
@@ -24,7 +27,6 @@ class logPrint(object):
         self.verbose = args_dict.pop('verbose', False) 
         print("Logging output to", self.filename) 
         self.f = open(self.filename, 'a')
-        self.line_break = lambda : self.f.write(80*'-'+'\n')
         self.f.write('\n')
         self.line_break()
         self.f.write("Output Summary of {:}, executed at {:%c} with the following input arguments:\n".format(self.program, start_time))
@@ -34,10 +36,14 @@ class logPrint(object):
         self.line_break()
         atexit.register(close_log_file, self.f, start_time)
 
-    def __call__(self, line, print_line=False):
+    def __call__(self, line, print_line=False, header=False):
         if self.verbose or print_line:
             print(line)
+        if header:
+            self.line_break()
         self.f.write(str(line)+'\n')        
+        if header:
+            self.line_break()
 
 class sampleMetaData(object):
     def __init__(self, metadata_df, verbose=False):
