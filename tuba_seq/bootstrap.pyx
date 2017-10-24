@@ -1,9 +1,8 @@
 import pandas as pd
 from numpy.linalg import norm
 import numpy as np
-from time import time
 from warnings import warn
-from pmap import large_iter_pmap as pmap
+from tuba_seq.pmap import large_iter_pmap as pmap
 from itertools import combinations_with_replacement
 
 def possible_boots(n): 

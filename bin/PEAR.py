@@ -18,15 +18,9 @@ parser.add_argument("-v", "--verbose", help='Output more Info', action="store_tr
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
 parser.add_argument('-c', '--cmd', default='pear', help='Name of PEAR PATH/executable.')
 parser.add_argument('-u', '--uncompressed', action='store_true', help='Avoid PHRED compression.')
-
-#PEAR_params =pd.Series({#'-v':['min_overlap', barcode_length, "Minimum overlap region length for a merged sequence."], 
-                        #'-n':['min_length', barcode_length+2*alignment_flank, "Minimum length for a merged sequence."],
-#                        '-c':['phred_cap', 0, 'Cap to PHRED score (0 = no cap).'],
-#                        '-b':['base', 1, 'Base PHRED quality score.']}, index=['name', 'default', 'help'])
-
-#PEAR_group = parser.add_argument_group('PEAR', 'Arguments passed directly to PEAR, as defined in its documentation.')
-#for char, S in PEAR_params.items():
-#    PEAR_group.add_argument(char, '--'+S['name'], **(S[['default', 'help']].to_dict()))
+parser.add_argument('-k', '--keep', action='store_true', help='Keep unassembled read files.')
+parser.add_argument('-n', '--min_length', type=int, help="Minimum length for a merged sequence.", 
+    default=(22*2)+29) #Default = minimum length necessary for successful preprocessing, under default conditions.  
 
 ASCII_BASE = 33
 attenuation_rate = 3
@@ -39,15 +33,13 @@ fastq_ext = '.fastq'
 args = parser.parse_args()
 Log = logPrint(args)
 
-threads = CPUs if args.parallel else 1
+os.makedirs(args.merge_dir, exist_ok=True)
 
-os.makedirs(args.merged_dir, exist_ok=True)
-
-forward_files = {f for f in os.listdir(parser.forward_read_dir) if fastq_ext in f}
-reverse_files = {f for f in os.listdir(parser.reverse_read_dir) if fastq_ext in f}
+forward_files = {f for f in os.listdir(args.forward_read_dir) if fastq_ext in f}
+reverse_files = {f for f in os.listdir(args.reverse_read_dir) if fastq_ext in f}
 
 matches = forward_files & reverse_files
-Log("Found "+len(matches)+" matching files.")
+Log("Found {:} matching files.".format(len(matches)))
 
 forward_only = forward_files - reverse_files
 reverse_only = reverse_files - forward_files
@@ -65,36 +57,42 @@ else:
             Log(forward_only)
 
 PHRED_compressor = {ASCII_BASE + i:(ASCII_BASE + int(i/attenuation_rate)) if i < attenuation_cap else (ASCII_BASE + i - attenuation_cap + max_attenuated) for i in range(max_PHRED)}
-Totals = pd.Series({'Assembled reads':0, 'Discarded reads':0, 'Not assembled reads':0})
+stats = {'Assembled reads', 'Discarded reads', 'Not assembled reads'}
+tallies = dict()
 
+suffixes = {'assembled', 'discarded', 'unassembled.forward', 'unassembled.reverse'}
 for File in matches:
-    output_file = os.path.join(args.merge_dir, File)
+    sample = File.split('.fastq')[0]
+    output_file = os.path.join(args.merge_dir, sample)
     options = { '-f':os.path.join(args.forward_read_dir, File),
                 '-r':os.path.join(args.reverse_read_dir, File),
                 '-o':output_file,
-                '-j':threads,
-                '-c':0,
-                '-b':1}
+                '-n':args.min_length,
+                '-j':CPUs if args.parallel else 1,  # No. of threads to use
+                '-c':0}                             # Eliminate PHRED Cap
     
-    #options.update(PEAR_params['name'].apply(args.__dict__.get).to_dict())
-
-    command = [args.PEAR_CMD]+[str(s) for item in options.items() for s in item]
-    Log('Analyzing '+File+' with command:')
-    Log(' '.join(command))
+    command = [args.cmd]+[str(s) for item in options.items() for s in item]
+    Log('Analyzing {:} with command:\n{:}'.format(sample, ' '.join(command)))
     output = Popen(command, stdout=PIPE, stderr=PIPE).communicate()[0].decode('ascii')
     
-    for line in output.splitlines():
-        for stat in Totals.keys():
-            if stat in line:
-                Log(line)
-                Totals[stat] += int(line.partition(':')[2].partition('/')[0].replace(',', '')) 
+    tallies[sample] = pd.Series({stat:int(line.partition(':')[2].partition('/')[0].replace(',', '')) 
+                        for line in output.splitlines() for stat in stats if stat+' ...' in line}, name='Totals')
     
     if args.uncompressed:
         continue
-    reads = fastqDF.from_file(output_file, fake_header=False, use_Illumina_filter=False)
+    reads = fastqDF.from_file(output_file+".assembled.fastq", fake_header=False, use_Illumina_filter=False)
     reads['QC'] = reads['QC'].str.translate(PHRED_compressor)
     reads.write(output_file)
+    if not args.keep:
+        for suffix in suffixes:
+            os.remove('{:}.{:}.fastq'.format(output_file, suffix))
 
+tallies = pd.DataFrame(tallies)
+tallies.index.names = ['Sample']
+Log(tallies.to_string())
+Totals = tallies.sum()
+
+Log('Summary of Read Merging:', True, header=True)
 df = pd.DataFrame(dict(Totals=Totals, Fraction=Totals/Totals.sum()))
 Log(df.to_string(float_format='{.3%}'.format), True)
 

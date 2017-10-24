@@ -8,19 +8,30 @@ also logged.
 from datetime import datetime
 import atexit, warnings, functools
 
-def close_log_file(file_object, start_time):
-    runtime = datetime.now() - start_time
-    file_object.write('Runtime: {:}'.format(str(runtime).split('.')[0]))
-    file_object.close()
-
 class logPrint(object):
     def line_break(self):
         self.f.write(80*'-'+'\n')
 
+    def __call__(self, line, print_line=False, header=False):
+        if self.verbose or print_line:
+            print(line)
+        if header:
+            self.f.write((len(line)+4)*"#"+'\n')
+            self.f.write('# '+str(line)+' #\n')        
+            self.f.write((len(line)+4)*"#"+'\n')
+        else:
+            self.f.write(str(line)+'\n')        
+
+    def close_logPrint(self):
+        runtime = datetime.now() - self.start_time
+        self('Runtime: {:}'.format(str(runtime).split('.')[0]))
+        self.line_break()
+        self.f.close()
+    
     def __init__(self, input_args, filename=None):
         import __main__ as main 
         import os
-        start_time = datetime.now()
+        self.start_time = datetime.now()
         self.program = os.path.basename(main.__file__).partition('.py')[0]
         self.filename = self.program+'.LOG' if filename is None else filename
         args_dict = input_args.__dict__.copy()
@@ -29,21 +40,12 @@ class logPrint(object):
         self.f = open(self.filename, 'a')
         self.f.write('\n')
         self.line_break()
-        self.f.write("Output Summary of {:}, executed at {:%c} with the following input arguments:\n".format(self.program, start_time))
+        self.f.write("Output Summary of {0.program}, executed at {0.start_time:%c} with the following input arguments:\n".format(self))
         self.line_break()
         for arg, val in args_dict.items():
             self.f.write("{:}: {:}\n".format(arg, val))
         self.line_break()
-        atexit.register(close_log_file, self.f, start_time)
-
-    def __call__(self, line, print_line=False, header=False):
-        if self.verbose or print_line:
-            print(line)
-        if header:
-            self.line_break()
-        self.f.write(str(line)+'\n')        
-        if header:
-            self.line_break()
+        atexit.register(self.close_logPrint)
 
 class sampleMetaData(object):
     def __init__(self, metadata_df, verbose=False):

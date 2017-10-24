@@ -3,7 +3,43 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tuba_seq.graphs import text_color_legend
+from tuba_seq.tools import LN_mean, inerts
 from scipy import stats 
+
+def identify_outliers_by_target_profile(normalized_tumors, metric=LN_mean, alpha=0.05, inerts=inerts):
+    from tuba_seq.bootstrap import sample
+    from scipy.stats import combine_pvalues
+
+    expected = normalized_tumors.groupby(level='target').agg(metric)
+
+    def mouse_specific(t):
+        return t.groupby(level=['Mouse', 'target']).agg(metric).groupby(level='Mouse').transform(lambda S: S - expected.values)
+        
+    m = len(normalized_tumors.groupby(level=['target', 'Mouse']))
+    
+    bs = sample(normalized_tumors, mouse_specific, min_pvalue=alpha/m)
+
+    pscores = bs.pscores(null_hypothesis=0, two_sided=True)
+    pvals = pscores.groupby(level='Mouse').agg(lambda S: combine_pvalues(S)[1])*m
+    outliers = bs.true_estimate.unstack(level='target').loc[pvals < alpha]
+    if len(outliers) == 0:
+        print("Did not find outliers")
+        return None
+
+    outliers.insert(0, 'p-value', pvals.loc[pvals < alpha])
+
+    untransformed_outlier_bootstraps = bs[pvals < alpha].T.groupby(level='Mouse').transform(lambda S: S + expected.values).T
+        # Since we calculated all these bootstraps, I'm going to hack the bootstrap object to see if any of the active
+        # sgRNAs exhibit increased tumor size.
+    bs.bootstrap_samples = untransformed_outlier_bootstraps
+    
+    most_active_sgRNA_pscore = bs.pscores(null_hypothesis=1, two_sided=False).groupby(level='Mouse').agg(
+                                    lambda S: S.loc[-S.index.get_level_values("target").isin(inerts)].min())
+    
+    active_m = (-expected.index.isin(inerts)).sum()
+    outliers.insert(1, 'Cas9 Activity?', most_active_sgRNA_pscore.apply(lambda p: 'yes' if p < alpha/active_m else 'no'))
+
+    return outliers
 
 def contamination(tumor_numbers, alpha=0.05):
     from statsmodels.formula.api import ols

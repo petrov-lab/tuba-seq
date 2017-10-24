@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(   description="Corrects consolidated & annotat
 IO_group = parser.add_argument_group('IO', 'Input/Output Optional Arguments')
 IO_group.add_argument('-i', '--input_file', default='combined.csv.gz', help='CSV file with the consolidated samples and their sgID-target annotations.')
 IO_group.add_argument('--full_out_file', type=str, default='complete_analysis.csv', help='Comprehensive description of every un-dropped barcode cluster.')
-IO_group.add_argument('--simple_out_file', type=str, default='tumor_number.csv', help='Only tumors that pass the filter and their corrected sizes.') 
+IO_group.add_argument('--simple_out_file', type=str, default='tumor_sizes.csv', help='Only tumors that pass the filter and their corrected sizes.') 
 
 IO_group.add_argument('-b', '--bartender', action='store_true', help='Process Bartender (https://github.com/LaoZZZZZ/bartender-1.1) clustering output.')
 IO_group.add_argument("-v", "--verbose", help='Output more Info', action="store_true")

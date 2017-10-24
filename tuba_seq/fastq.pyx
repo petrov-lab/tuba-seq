@@ -32,13 +32,12 @@ class fastqDF(pd.DataFrame):
 
     @classmethod
     def from_file(cls, filename, fake_header=True, use_Illumina_filter=True, check_lengths=True):
-        data = pd.read_table(filename, names=['__'], encoding='ascii', quoting=3, dtype=str)['__'].values.reshape((-1, 4))[:, [True, True, False, True]] 
-        self = cls(pd.DataFrame(data=data,
-                    columns=cls.essential_columns))
+        self = cls(pd.DataFrame(
+            data=pd.read_table(filename, names=['__'], encoding='ascii', quoting=3, dtype=str)['__'].values.reshape((-1, 4))[:, [True, True, False, True]], 
+            columns=cls.essential_columns))
         if use_Illumina_filter:
-            self.select_reads(self['header'].str.contains(":N:"))       # Y = filtered, N = passed filter
-       
-        sample_header = self.loc[0, 'header']
+            self.select_reads(self['header'].str.contains(":N:"))       # Y = failed filter, N = passed filter
+        sample_header = self['header'].iloc[0]
         split = sample_header.split()
         self.info = pd.Series(dict(zip(['Instrument', 'Run', 'Flowcell', 'Lane'], split[0].split(':'))))
         if len(split) == 2:
@@ -126,23 +125,25 @@ def cprint(s): print(s.decode('ascii'))
 c_gap = '-'.encode('ascii') 
 c_N = 'N'.encode('ascii') 
 
-
 class MasterRead(object):
     def __init__(self, master_read, args):
         self.alignment_flank = args.alignment_flank
         self.training_flank = args.training_flank
-        self.cluster_flank = args.cluster_flank if hasattr(args, 'cluster_flank') else args.alignment_flank
+        self.cluster_flank = args.cluster_flank if hasattr(args, 'cluster_flank') else args.allowable_deviation
+        self.allowable_deviation = args.allowable_deviation
+
+        self.full = master_read.replace('.', 'N')
+        self.ref = self.full[self.full.index("N") - self.alignment_flank:self.full.rindex("N")+self.alignment_flank+1]
         
-        self.ref = master_read.replace('.', 'N')
+        self.barcode_length = len(self.ref) - 2*self.alignment_flank
+        
         self.c_ref = self.ref.encode('ascii')
-        self.c_ref_scoring = self.c_ref[self.ref.index('N') - args.alignment_flank: self.ref.rindex('N')+args.alignment_flank+1]
-        self.barcode_length = len(self.c_ref) - len(self.c_ref_scoring)
-        self.max_score = nw.char_score(self.c_ref_scoring, self.c_ref_scoring)
+        self.max_score = nw.char_score(self.c_ref, self.c_ref)
         self.min_align_score = args.min_align_score
 
     @classmethod
-    def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.75):
-        counts = pd.concat({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
+    def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.667):
+        counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
         PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
         master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
         return cls(master_read, args)
@@ -168,11 +169,11 @@ class MasterRead(object):
             int CF = self.cluster_flank
             int start
             int stop
-        dna = QCs.name
+        dna = QCs.index[0]
         c_dna = dna.encode('ascii')
         start, stop = self.find_start_stop(c_dna)
         c_dna_scoring = c_dna[start - self.alignment_flank:stop + self.alignment_flank]
-        score = nw.char_score(c_dna_scoring, self.c_ref_scoring)/self.max_score
+        score = nw.char_score(c_dna_scoring, self.c_ref)/self.max_score
         if score < self.min_align_score:
             return 'Unaligned', score
         if abs((stop - start) - BL) > self.allowable_deviation:
