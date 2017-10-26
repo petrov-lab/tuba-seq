@@ -104,13 +104,50 @@ def PC1_explained_variance(S, pca=PCA()):
     pca.fit(M)
     return pca.explained_variance_ratio_[0]
 
-def inert_normalize(S, estimator='mean', inerts=inerts):
+def inert_normalize(S, estimator='median', inerts=inerts):
+    """Normalize tumor sizes to inert sgRNA tumor sizes.
+
+E.g. nomralized_cells = cells.groupby(level='Mouse').transform(inert_normalize)
+
+Variable:
+---------
+S : pd.Series containing Absolute Cell #s and an Index with a level entitled 
+    'target'--to be used to identify tumors arising from inert sgRNAs.
+
+Parameters:
+-----------
+estimator : Function to determine Central Tendency of inerts (default: 'median')
+
+inerts : List of inert targets (default: ['Neo1', 'Neo2', 'Neo3', 'NT1']).
+"""
     N = S.loc[S.index.get_level_values('target').isin(inerts)].agg(estimator)
     return S/N
 
 def load_tumors(filename='tumor_sizes.csv.gz', metadata='sample_metadata.csv', 
                 meta_columns=[], drop=None, merger=None, merge_func='mean'):
+    """Loads & annotates tumor size datafile, returns pd.Series of Absolute Cell #.
 
+Parameters:
+-----------
+filename : CSV file containing all tumor sizes and their sample/sgRNA target/
+    barcodes (default: "tumor_sizes.csv.gz'--default of final_processing.py).
+
+metadata : CSV file containing sample metadata (default: 'sample_metadata.csv').
+
+meta_columns : Columns in the metadata file to append to the Multi-Index of the 
+    output pd.Series. For example, I typically include a 'Genotype' and 'Time' 
+    (of tumor growth in weeks) column in the metadata file, which I use to group
+    and slice tumor sizes in various analyses (default: []).
+
+drop : Samples to exclude from output. Either column name in metadata file (with 
+    boolean or y/n entries, or container of Sample names. (default: None).
+
+merger : Mergers replicate samples. Either column name in metadata file (with
+    final sample names as entries, or dictionary with Sample -> merged_name
+    mappings. (default: None).
+
+merge_func : Function to merge tumors in replicate samples (default: 'mean').
+"""
     tumors = pd.read_csv(filename)
     meta_df = pd.read_csv(metadata_filename).set_index("Sample").sort_index()
    
