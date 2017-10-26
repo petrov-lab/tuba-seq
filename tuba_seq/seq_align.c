@@ -3,7 +3,14 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "depends": [],
+        "depends": [
+            "seq-align/src/alignment.c",
+            "seq-align/src/alignment.h",
+            "seq-align/src/alignment_scoring.c",
+            "seq-align/src/alignment_scoring.h",
+            "seq-align/src/needleman_wunsch.c",
+            "seq-align/src/needleman_wunsch.h"
+        ],
         "include_dirs": [
             "seq-align/src",
             "/home/users/cmcfarl2/.local/lib/python3.6/site-packages/numpy/core/include"
