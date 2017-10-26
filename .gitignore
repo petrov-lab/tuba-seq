@@ -3,7 +3,6 @@
 ###############
 old/*
 build/*
-seq-align/*
 
 # Extras #
 ##########
