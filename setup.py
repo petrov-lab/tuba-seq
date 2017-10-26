@@ -19,5 +19,10 @@ setup(  name='tuba_seq',
             'powerlaw',
             'biopython',
             'progressbar2'],
+        scripts=[
+            'bin/preprocess.py',
+            'bin/postprocess.py',
+            'bin/PEAR.py',
+            'bin/final_processing.py'],
         version='1.0') 
 
