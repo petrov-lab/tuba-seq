@@ -30,8 +30,8 @@ Executable scripts, by virtue of their shebang, assume python3 and R are within 
 git clone --recursive https://github.com/petrov-lab/tuba-seq.git  
 cd tuba-seq
 
-# Install the tuba-seq Python package 
-./setup.py install
+# Install the tuba-seq Python package--use pip to install requirements.  
+pip3 install .
 
 # Install DADA2 from source
 ./INSTALL_DADA2.R
