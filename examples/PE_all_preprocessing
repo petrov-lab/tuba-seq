@@ -11,7 +11,7 @@ REVERSE_READS="reverse_reads"
 echo "Analyzing paired-end fastq files in $DATA_DIR."
 
 $TUBA_SEQ_DIR/$MERGING_ALGORITHM.py -p -m $DATA_DIR/$MERGE_DIR $DATA_DIR/$FORWARD_READS $DATA_DIR $REVERSE_READS;
-$TUBA_SEQ_DIR/preprocess.py -p -s $DATA_DIR/$MERGE_DIR;
+$TUBA_SEQ_DIR/preprocess.py -p -s -f 0.01 $DATA_DIR/$MERGE_DIR;
 $TUBA_SEQ_DIR/DADA2_error_training.R $DATA_DIR/training_derep.RData >> DADA2_error_training.LOG;
 
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";
