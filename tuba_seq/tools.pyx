@@ -149,7 +149,7 @@ merger : Mergers replicate samples. Either column name in metadata file (with
 merge_func : Function to merge tumors in replicate samples (default: 'mean').
 """
     tumors = pd.read_csv(filename)
-    meta_df = pd.read_csv(metadata_filename).set_index("Sample").sort_index()
+    meta_df = pd.read_csv(metadata).set_index("Sample").sort_index()
    
     ix_names = ['Sample', 'target', 'barcode']
     if drop is not None:
