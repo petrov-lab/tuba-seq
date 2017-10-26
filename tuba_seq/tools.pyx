@@ -108,7 +108,7 @@ def inert_normalize(S, estimator='mean', inerts=inerts):
     N = S.loc[S.index.get_level_values('target').isin(inerts)].agg(estimator)
     return S/N
 
-def load_tumors(filename='tumor_sizes.csv.gz', metadata_filename='sample_metadata.csv', 
+def load_tumors(filename='tumor_sizes.csv.gz', metadata='sample_metadata.csv', 
                 meta_columns=[], drop=None, merger=None, merge_func='mean'):
 
     tumors = pd.read_csv(filename)
