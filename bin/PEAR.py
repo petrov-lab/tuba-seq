@@ -87,12 +87,12 @@ for File in matches:
         for suffix in suffixes:
             os.remove('{:}.{:}.fastq'.format(output_file, suffix))
 
-tallies = pd.DataFrame(tallies)
+tallies = pd.DataFrame(tallies).T
 tallies.index.names = ['Sample']
 Log(tallies.to_string())
 Totals = tallies.sum()
 
-Log('Summary of Read Merging:', True, header=True)
+Log('Summary of Read Merging', True, header=True)
 df = pd.DataFrame(dict(Totals=Totals, Fraction=Totals/Totals.sum()))
-Log(df.to_string(float_format='{.3%}'.format), True)
+Log(df.to_string(float_format='{:.3%}'.format), True)
 
