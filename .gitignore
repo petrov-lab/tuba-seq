@@ -8,6 +8,7 @@ build/*
 ##########
 *.ai
 tuba_seq/__pycache__
+tuba_seq/*.c
 
 # Compiled source #
 ###################
