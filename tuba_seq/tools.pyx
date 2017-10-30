@@ -166,17 +166,16 @@ merge_func : Function to merge tumors in replicate samples (default: 'mean').
             merger = meta_df[merger]
         elif merger.name is None:
             raise ValueError("Merger must have a `name` attribute to label this new column.")
-        
+      
         tumors.insert(0, merger.name, merger.loc[tumors['Sample']].values)
         meta_df = meta_df.reset_index().set_index(merger.name)
         ix_names[0] = merger.name
-        tumors = tumors.groupby(level=ix_names).agg(merge_func)
+        tumors = tumors.groupby(ix_names).agg(merge_func).reset_index()
 
     if meta_columns != []:
         tumors = pd.concat([meta_df.loc[tumors[ix_names[0]], meta_columns], tumors], axis=1)
         ix_names = meta_columns + ix_names
     return tumors.set_index(ix_names)['Cells'].sort_index()
-
 
 PERMISSIBLE_UNCERTAINTY = 0.21
 
