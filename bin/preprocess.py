@@ -60,7 +60,7 @@ elif args.compression == 'bz2':
     compression_ext = '.bz2'
 
 if args.parallel:
-    from tuba_seq.pmap import low_memory_pmap as map 
+    from tuba_seq.pmap import pmap 
 
 for Dir in output_dirs:
     os.makedirs(Dir, exist_ok=True)
@@ -70,7 +70,13 @@ max_file_size = 1e9 if args.parallel else 2e9
 
 Log = logPrint(args)
 Log('Processing {:} samples found in {:}.'.format(len(files), args.input_dir), print_line=True)
-def process_sample(filename):
+
+tallies = {}
+infos = {}
+unknown_DNAs = {}
+scores = {}
+
+for filename in files:
     sample = os.path.basename(filename.partition(fastq_ext)[0])
     filenames = [os.path.join(Dir, sample)+fastq_ext+compression_ext for Dir in output_dirs]
     if args.skip and all(map(os.path.isfile, filenames)):
@@ -102,12 +108,11 @@ amount of memory for successful execution.""".format(filename, os.path.getsize(f
     percents = defaultdict(float, tallies/init_reads)
     Log('Sample {:}: {:.2f}M Reads, {Unaligned:.1%} unaligned, {PhiX:.1%} PhiX, {Wrong Barcode Length:.1%} inappropriate barcode length, {Clustered:.1%} Cluster-able.'.format(sample, init_reads*1e-6, **percents))
     tallies['Initial'] = init_reads
-    return dict(tallies=tallies,
+    dict(tallies=tallies,
                 info=reads.info, 
                 unknown_DNAs=contaminants/init_reads,
                 scores=output.groupby('score').sum())
 
-_reports = list(map(process_sample, files))
 
 dfs = {r['info'].loc['Sample']:r for r in _reports if r is not None}
 meta_datas = ['tallies', 'unknown_DNAs', 'info', 'scores']
