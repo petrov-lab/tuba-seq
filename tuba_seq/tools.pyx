@@ -1,5 +1,4 @@
 from numpy cimport ndarray 
-from tuba_seq.pmap import pmap as map 
 import numpy as np
 import pandas as pd
 import io, sys, collections
@@ -17,6 +16,27 @@ def LN_mean(data):
     X = LN_x.dot(One)/L
     X2 = LN_x.dot(LN_x)/L - X*X
     return np.exp(X + 0.5*X2)
+
+def xformed_LN_mean(ndarray[dtype=double, ndim=1] LN_x):
+    cdef:
+        double L = len(LN_x)
+        ndarray[dtype=double, ndim=1] One = np.ones_like(LN_x)
+    X = LN_x.dot(One)/L
+    X2 = LN_x.dot(LN_x)/L - X*X
+    return np.exp(X + 0.5*X2)
+
+def LN_mean_P_values(S, inerts=inerts, min_pvalue=0.0001):
+    from bootstrap import sample
+    ix = S.index.get_level_values('target').isin(inerts)
+    Y = S.groupby(level='target').agg(LN_mean)
+    LN_I = np.log(S.loc[ix])
+    def all_targets_LN_mean(ln_S):
+        return ln_S.groupby(level='target').agg(lambda S: xformed_LN_mean(S.values))
+    s = sample(LN_I, all_targets_LN_mean, min_pvalue=min_pvalue)
+    output = pd.Series({target:s.percentileofscore(y).drop(target, errors='ignore').mean() for target, y in Y.iteritems()}, 
+                       name='LN Mean P-value')
+    output.index.names = ['target']
+    return 1 - output*1e-2
 
 def percentiles(S, tiers=percentile_tiers):
     """percentiles of pandas.Series Object
@@ -150,7 +170,6 @@ merge_func : Function to merge tumors in replicate samples (default: 'mean').
 """
     tumors = pd.read_csv(filename)
     meta_df = pd.read_csv(metadata).set_index("Sample").sort_index()
-   
     ix_names = ['Sample', 'target', 'barcode']
     if drop is not None:
         if type(drop) == str:
@@ -158,7 +177,10 @@ merge_func : Function to merge tumors in replicate samples (default: 'mean').
                 raise LookupError("drop `{:}` is not a column in the metadata file.".format(drop))
             drop = meta_df.query('@drop or @drop == "y"').index
         tumors = tumors.loc[tumors.isin(drop)]
-
+    
+    if meta_columns != []:
+        tumors = tumors.join(meta_df.loc[tumors['Sample'], meta_columns].reset_index(drop=True))
+    
     if merger is not None:
         if type(merger) == str:
             if not merger in meta_df.columns:
@@ -166,85 +188,10 @@ merge_func : Function to merge tumors in replicate samples (default: 'mean').
             merger = meta_df[merger]
         elif merger.name is None:
             raise ValueError("Merger must have a `name` attribute to label this new column.")
-      
+        
         tumors.insert(0, merger.name, merger.loc[tumors['Sample']].values)
-        meta_df = meta_df.reset_index().set_index(merger.name)
-        ix_names[0] = merger.name
-        tumors = tumors.groupby(ix_names).agg(merge_func).reset_index()
+        return tumors.groupby(meta_columns+[merger.name]+ix_names)["Cells"].agg(merge_func)
+    else:     
+        return tumors.set_index(meta_columns+ix_names)['Cells'].sort_index()
 
-    if meta_columns != []:
-        tumors = pd.concat([meta_df.loc[tumors[ix_names[0]], meta_columns], tumors], axis=1)
-        ix_names = meta_columns + ix_names
-    return tumors.set_index(ix_names)['Cells'].sort_index()
 
-PERMISSIBLE_UNCERTAINTY = 0.21
-
-def power_analysis(ref_data, active_ref_sgRNAs, N_mice, N_active_sgRNAs, 
-                   metric=LN_mean, alpha=0.05, two_sided=True, max_sensitivity=0.99, N_samples=None):
-    """Sensitivity of Tuba-seq to proposed experiment. 
-    
-    Returns the Sensitivity (TPR) of a hypothetical Tuba-seq experiment by down-
-    sampling tumor sizes from a reference dataset. The effect sizes are the true 
-    effect sizes of the active sgRNAs within the reference dataset. If you want to
-    project results for a hypothetical effect size, I recommend multiplying the active
-    sgRNAs by constants that impart the effect size of interest. To reduce the number
-    of permutation tests, this analysis does not model the bootstrapping method that
-    is used to naively identify p-values in a real Tuba-seq dataset. Instead, it 
-    models many hypothetical experiments to generate a sampling distribution of inert
-    sgRNAs that defines the size threshold for the desired FPR, and also a sampling 
-    distribution of each active sgRNA to identify the sensitivity above this FPR. As
-    such, it may be a little more conservative, but also should more accurately capture
-    the statistical noise introduced via off-target sgRNA cutting insofar as it is
-    captured by variation in inert sgRNA mean sizes. 
-
-    Variables:
-    ----------
-    ref_data : pandas.Series of tumor sizes indexed by `Mouse` and `target` genes.
-    
-    active_ref_sgRNAs : Iterable of active sgRNAs in the reference dataset.
-
-    N_mice : Number of mice in hypothetical experiment.
-
-    N_active_sgRNAs : Number of active sgRNAs in hypothetical experiment. 
-
-    Parameters:
-    -----------
-    metric : Summary statistical measure to define growth (default: LN_mean)
-
-    alpha : Desired Specificity (FPR) of survey (default: 0.05)
-
-    two_sided : Use two-sided statistical test for increased growth (default: True)
-
-    N_samples : Number of random samples to generate for determining Sensitivity. 
-        (default: None -- See below).
-
-    max_sensitivity : This parameter is only relevant when N_samples == None. 
-        Uses a common heuristic to define the maximum trust-able Sensitivity level.
-        Projecting higher TPRs requires more down-samplings to adequately model the 
-        left-most tail of the sampling distribution (False Negatives) from which the 
-        Sensitivity rate is determined. (default: 0.99, I.e. you can trust Sensitivity
-        values reported up to 99% sensitivity, but if you wanted to know where your
-        Tuba-seq experiment becomes 99.9% sensitive, then you must generate more
-        random samplings.)
-    """
-
-    if N_samples is None:
-        N_samples = int(np.ceil(4/((1-max_sensitivity)*PERMISSIBLE_UNCERTAINTY**2)))
-        print("Running", N_samples, "Samples")
-
-    gb = ref_data.groupby(level='Mouse')
-    mice = pd.Series(list(gb.groups.keys()))
-
-    inerts = set(ref_data.groupby(level='target').groups.keys()) - set(active_ref_sgRNAs)
-    
-    ratio = len(active_ref_sgRNAs)/N_active_sgRNAs
-    def analyze(df):
-        down_sample = df.sample(int(round(ratio*len(df))), replace=True)
-        return inert_normalize(down_sample.groupby(level='target').agg(metric), inerts=inerts)
-
-    Y = pd.DataFrame([analyze(pd.concat([gb.get_group(mouse) for mouse in mice.sample(N_mice, replace=True)])) for _ in range(N_samples)])
-    
-    alpha_B = (alpha/N_active_sgRNAs/2) if two_sided else (alpha/N_active_sgRNAs)
-    FPR_threshold = Y[list(inerts)].stack().quantile(q=1-alpha_B) 
-    print('\n', N_active_sgRNAs, FPR_threshold, alpha_B, Y[list(inerts)].stack().quantile(q=0.99))
-    return (Y[active_ref_sgRNAs] > FPR_threshold).mean()

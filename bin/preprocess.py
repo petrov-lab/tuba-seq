@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 import pandas as pd
 import os, numpy, argparse
-from tuba_seq.fastq import fastqDF, MasterRead
+from multiprocessing import Manager
+from tuba_seq.fastq import MasterRead
 from tuba_seq.shared import logPrint
 from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
-from collections import defaultdict
 import warnings
+from matplotlib import pyplot as plt
 
 fastq_ext = '.fastq'
+histogram_filename = 'alignment_histogram.pdf'
 
 default_master_read = ''.join((
     'GCGCACGTCTGCCGCGCTGTTCTCCTCTTCCTCATCTCCGGGACCCGGA',# forward flank
@@ -34,7 +36,7 @@ parser.add_argument('-s', '--search_blast', action='store_true', help='Use NCBI 
 parser.add_argument('-l', '--local_blast', action='store_true', 
     help='Use local NCBI BLAST+ algorithm to accelerate searching (if present), see tuba_seq/blast.py.')
 parser.add_argument('-d', '--derep', action='store_true', help='De-replicate output fastQ files for DADA2 to minimize file sizes.')
-parser.add_argument('-f', '--fraction', type=float, default=0.05, help='Minimum fraction of total reads to elicit a BLAST-search of an unknown sequence.')
+parser.add_argument('-f', '--fraction', type=float, default=0.01, help='Minimum fraction of total reads to elicit a BLAST-search of an unknown sequence.')
 parser.add_argument('-k',  '--skip', action='store_true', help='Skip files that already exist in output directories.')
 
 parser.add_argument('-a', '--allowable_deviation', type=int, default=4, help="Length of Indel to tolerate before discarding reads.")
@@ -58,9 +60,11 @@ elif args.compression == 'gzip':
 elif args.compression == 'bz2':
     from bz2 import open
     compression_ext = '.bz2'
+else:
+    raise ValueError("Unknown compression: "+args.compression)
 
 if args.parallel:
-    from tuba_seq.pmap import low_memory_pmap as map 
+    from tuba_seq.pmap import low_memory_pmap as map
 
 for Dir in output_dirs:
     os.makedirs(Dir, exist_ok=True)
@@ -70,104 +74,87 @@ max_file_size = 1e9 if args.parallel else 2e9
 
 Log = logPrint(args)
 Log('Processing {:} samples found in {:}.'.format(len(files), args.input_dir), print_line=True)
-def process_sample(filename):
+
+manager = Manager()
+master_read.scores = manager.dict()
+master_read.unaligned = manager.dict()
+master_read.alignments = manager.dict()
+master_read.instruments = manager.dict()
+
+
+def process_fastq(filename):
     sample = os.path.basename(filename.partition(fastq_ext)[0])
     filenames = [os.path.join(Dir, sample)+fastq_ext+compression_ext for Dir in output_dirs]
-    if args.skip and all(map(os.path.isfile, filenames)):
+    if args.skip and all([os.path.isfile(f) for f in filenames]):
         Log("Skipping "+sample+" (already exists).")
-        return None
-    if os.path.getsize(filename) > max_file_size:
-         warnings.warn("""
-{:} is {:.1f} GB. preprocess.py must load this entire fastq file into memory, 
-and gzip decompression will inflate this size ~10x. You'll need about twice this
-amount of memory for successful execution.""".format(filename, os.path.getsize(filename)/1e9), RuntimeWarning)
-         if args.parallel:
-            warnings.warn("Running preprocess.py in non-multi-threaded form saves memory (multi-threading processes several fastq files simultaneously).", RuntimeWarning)
+        return 
 
-    reads = fastqDF.from_file(filename, fake_header=True, use_Illumina_filter=True)
-    init_reads = len(reads)
-    gb = reads.set_index("DNA")['QC'].groupby(level='DNA') 
+    if filename[-3:] == '.gz' or filename[-5:] == '.gzip':
+        from gzip import open as read_open
+    elif filename[-4:] == '.bz2':
+        from bz2 import open as read_open
+    elif filename.partition(fastq_ext)[2] == '': 
+        from builtins import open as read_open
+    else:
+        raise ValueError(filename + " is not a valid file extension to open.")
+    
+    with read_open(filename) as input_file:
+        outcomes = master_read.iter_fastq(sample, filenames, input_file)
+    reads = outcomes.sum()
+    Log('Sample {:} ({:.2f}M Reads): '.format(sample, reads*1e-6)+
+        ','.join(['{:.1%} {:}'.format(num/reads, name) for name, num in outcomes.iteritems() if num > 0])+'.')
 
-    with open(filenames[0], 'wb') as training_file, open(filenames[1], 'wb') as cluster_file:
-        reads_tuples = gb.agg(master_read.process_read_set, reads.construct_read_set, training_file, cluster_file)
-    counts = gb.count()
-    output = pd.DataFrame(reads_tuples.tolist(), columns=['outcome', 'score'], index=counts.index)
-    output['Reads'] = counts.values
-    unaligned = output.query('outcome == "Unaligned"')['Reads']
-    PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
-    contaminants = unaligned.loc[(~PhiX)&(unaligned>int(args.fraction*init_reads))]
-    tallies = output.groupby('outcome')['Reads'].sum()
-    tallies['PhiX'] = unaligned.loc[PhiX].sum()
-    tallies['Unaligned'] = tallies['Unaligned'] - tallies['PhiX'] if 'Unaligned' in tallies else 0
-    percents = defaultdict(float, tallies/init_reads)
-    Log('Sample {:}: {:.2f}M Reads, {Unaligned:.1%} unaligned, {PhiX:.1%} PhiX, {Wrong Barcode Length:.1%} inappropriate barcode length, {Clustered:.1%} Cluster-able.'.format(sample, init_reads*1e-6, **percents))
-    tallies['Initial'] = init_reads
-    return dict(tallies=tallies,
-                info=reads.info, 
-                unknown_DNAs=contaminants/init_reads,
-                scores=output.groupby('score').sum())
+    if args.derep:
+        Log("De-replicating outputs for "+sample+" ...")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore") 
+            for f in filenames:
+                try:
+                    derep = dada2.derepFastq(f, verbose=args.verbose)
+                    R_base.saveRDS(derep, file=f.replace(fastq_ext, '.rds'))
+                except Exception: 
+                    print("Could not derep "+f)
+                else:
+                    os.remove(f)
+    
+    return sample, outcomes
 
-_reports = list(map(process_sample, files))
+outcomes = pd.DataFrame(dict(map(process_fastq, files))).T
 
-dfs = {r['info'].loc['Sample']:r for r in _reports if r is not None}
-meta_datas = ['tallies', 'unknown_DNAs', 'info', 'scores']
-output = {meta_data:pd.concat({d['info'].loc['Sample']:d[meta_data] for d in _reports if d is not None}, names=['Sample']) for meta_data in meta_datas}
+scores = pd.DataFrame(dict(master_read.scores)).sum(axis=1) 
+unaligned = pd.Series(dict(master_read.unaligned))
 
-def derep(filename):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore") 
-        try:
-            derep = dada2.derepFastq(filename, verbose=args.verbose)
-            R_base.saveRDS(derep, file=filename.replace(fastq_ext, '.rds'))
-        except Exception: 
-            print("Could not derep "+filename)
-        else:
-            os.remove(filename)
+total_reads = outcomes.sum().sum()
 
-if args.derep:
-    Log("De-replicating outputs for DADA2...")
-    list(map(derep, [os.path.join(Dir, filename) for Dir in output_dirs for filename in os.listdir(Dir) if fastq_ext in filename]))
+PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
+unknown_DNAs = (unaligned.loc[~PhiX]/total_reads).loc[lambda x: x >= args.fraction]
 
-if args.search_blast and len(output['unknown_DNAs']) > 0: 
+if args.search_blast and len(unknown_DNAs) > 0: 
     from tuba_seq.blast import sleuth_DNAs
-    gb = output['unknown_DNAs'].groupby(level='DNA')
-    DNAs = list(gb.keys())
+    DNAs = unknown_DNAs.index.values
     Log("BLAST-searching", len(DNAs), "common unknown sequence(s)...", True)
     searches = sleuth_DNAs(DNAs, local_blast=args.local_blast)
     if len(searches) == 0:
         Log("Could not find any acceptable matches.", True)
     else:
-        Log("                -- Best Match --                          | E-score | Sample(s) | % of Sample", True)
+        Log("                -- Best Match --                          | E-score | % of Reads", True)
         for dna, row in searches.iterrows():
-            group = gb.groups[dna]
-            blast_result = "{short_title:<60} {e:1.0e}".format(**row)
-            for (_dna, sample), fraction in group.iteritems():
-                Log("{:}    {:}    {0:.2%}".format(blast_result, sample, fraction), True)
-                blast_result = len(blast_result)*' '
+            Log("{short_title:<60} {e:1.0e}    {:.2%}".format(unknown_DNAs[dna], **row),True)
 
-tallies = output['tallies'].astype(int).unstack()
-info = output['info'].unstack()
-
-if len(info['Instrument'].value_counts()) > 1:
+instruments = pd.Series(dict(master_read.instruments))
+if len(instruments.value_counts()) > 1:
     Log("This run contains fastq files from two different Illumina machines. This is not recommended.", True)
+    Log(instruments, True)
 
-def plot_alignment_histogram(data, filename='alignment_histogram.pdf', hist_kwargs={'bins':numpy.linspace(0, 1, 40)}):
-    from matplotlib import pyplot as plt
-    ax = plt.gca()
-    ax.hist(data.index.values, weights=data.values, **hist_kwargs)
-    ax.axvline(args.min_align_score, color='k', linestyle='dashed')
-    ax.set(xlabel='Alignment Score', ylabel='Observations')
-    plt.savefig(filename)
+ax = plt.gca()
+ax.hist(scores.index.values, weights=scores.values, bins=numpy.linspace(0, 1, 40))
+ax.axvline(args.min_align_score, color='k', linestyle='dashed')
+ax.set(xlabel='Alignment Score', ylabel='Observations')
+plt.savefig(histogram_filename)
 
-plot_alignment_histogram(output['scores'].groupby(level='score').sum())
+totals = outcomes.sum()
+totals['PhiX'] = unaligned.loc[PhiX].sum()
 
-totals = tallies.sum()
-reads = totals['Initial']
-percents = defaultdict(float, totals/reads)
-
-Log("Summary of the {:.2f}M processed reads of {:}:".format(reads*1e-6, args.base_dir), True, header=True)
-Log("""{Clustered:.1%} of reads will be used.
-{Unaligned:.1%} did not align well to the master read and {PhiX:.1%} was PhiX.
-{Wrong Barcode Length:.1%} had an inappropriate barcode length, while {Residual N:.1%} had an unfixable 'N' base. 
-""".format(**percents), True)
+Log("Summary of the {:.2f}M processed reads in {:}:".format(total_reads*1e-6, args.input_dir), True, header=True)
+Log((totals/total_reads).to_string(float_format='{:.2%}'.format), True)
 
