@@ -81,7 +81,6 @@ master_read.unaligned = manager.dict()
 master_read.alignments = manager.dict()
 master_read.instruments = manager.dict()
 
-
 def process_fastq(filename):
     sample = os.path.basename(filename.partition(fastq_ext)[0])
     filenames = [os.path.join(Dir, sample)+fastq_ext+compression_ext for Dir in output_dirs]
