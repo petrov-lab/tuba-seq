@@ -8,7 +8,10 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
 import warnings
-from matplotlib import pyplot as plt
+
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 
 fastq_ext = '.fastq'
 histogram_filename = 'alignment_histogram.pdf'
@@ -83,7 +86,6 @@ master_read.scores = manager.dict()
 master_read.unaligned = manager.dict()
 master_read.alignments = manager.dict()
 master_read.instruments = manager.dict()
-
 
 def process_fastq(filename):
     sample = os.path.basename(filename.partition(fastq_ext)[0])

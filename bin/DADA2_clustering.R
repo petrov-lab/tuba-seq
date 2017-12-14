@@ -35,7 +35,7 @@ overwrite.existing.file <- FALSE
 ############## IMPORTANT CLUSTERING DADA2 OPTIONS #############################
 library(dada2, quietly=TRUE)
 setDadaOpt( OMEGA_A     = 1e-10,
-            USE_QUALS   = TRUE )         # Will ignore Phred Scores if TRUE
+            USE_QUALS   = TRUE )         # Will ignore Phred Scores if FALSE
 
 ########################## PERFORMANCE DADA2 OPTIONS ##########################
 setDadaOpt( BAND_SIZE=4,        # Lower values improve performance. This value 
@@ -93,6 +93,6 @@ output <- dada( derep,
 File <- gzfile(out.file, "w")
 write.csv(output$clustering, File, quote=FALSE)
 close(File)
-message("Successfully clustered ", sample.name, " in " round(proc.time()[['elapsed']]/60), " mins.")
+message("Successfully clustered ", sample.name, " in ", round(proc.time()[['elapsed']]), " seconds.")
 
 ###############################################################################

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-#from params import barcode_length, alignment_flank
 import argparse
 import os
 from subprocess import Popen, PIPE
@@ -26,7 +25,7 @@ ASCII_BASE = 33
 attenuation_rate = 3
 attenuation_cap = 60
 max_attenuated = int(attenuation_cap/attenuation_rate)
-max_PHRED = 48
+max_PHRED = 90
 
 fastq_ext = '.fastq'
 
