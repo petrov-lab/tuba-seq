@@ -12,7 +12,7 @@ echo "Analyzing paired-end fastq files in $DATA_DIR."
 
 cd $DATA_DIR;
 $TUBA_PATH/PEAR.py -p -m $MERGE_DIR $FORWARD_READS $REVERSE_READS;
-$TUBA_PATH/preprocess.py -p -s -f 0.01 $MERGE_DIR;
+$TUBA_PATH/preprocess.py -p -s -d $MERGE_DIR;
 $TUBA_PATH/DADA2_error_training.R training_derep.RData >> DADA2_error_training.LOG;
 
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";

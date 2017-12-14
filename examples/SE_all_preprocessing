@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e 
 
-TUBA_PATH="$HOME/tuba_seq/bin"
+TUBA_PATH="$HOME/tuba-seq/bin"
 DATA_DIR=`pwd` 
 
 echo "Analyzing single-end files in $DATA_DIR."

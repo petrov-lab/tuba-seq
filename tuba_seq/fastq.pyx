@@ -133,13 +133,20 @@ class MasterRead(object):
         self.allowable_deviation = args.allowable_deviation
 
         self.full = master_read.replace('.', 'N')
-        self.ref = self.full[self.full.index("N") - self.alignment_flank:self.full.rindex("N")+self.alignment_flank+1]
+        
+        start = self.full.index("N")
+        stop = self.full.rindex('N') + 1
+        self.ref = self.full[start - self.alignment_flank:stop+self.alignment_flank]
         
         self.barcode_length = len(self.ref) - 2*self.alignment_flank
         
         self.c_ref = self.ref.encode('ascii')
         self.max_score = nw.char_score(self.c_ref, self.c_ref)
         self.min_align_score = args.min_align_score
+
+        aft_length = len(self.full) - stop
+        pre_slice = (slice(start-aft_length, stop+aft_length) if start > aft_length  else slice(args.trim, stop+start-args.trim)) if args.symmetric_flanks else slice(0, len(self.full)) 
+        self.pre_slice = slice(pre_slice.start + args.trim, pre_slice.stop - args.trim)
         
     @classmethod
     def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.667):
@@ -164,64 +171,71 @@ class MasterRead(object):
     
     def iter_fastq(self, sample, filenames, input_file):
         from collections import defaultdict
-        outcomes = dict(zip(['Filtered', 'Unaligned', 'Wrong Barcode Length', 'Residual N', 'Insufficient Flank', 'Clustered'], 6*[0]))
         scores = defaultdict(int)
         cdef:
             int BL = self.barcode_length
             int TF = self.training_flank
             int CF = self.cluster_flank
-            int i, j
             int start, stop
             double score
+        
+            int Filtered = 0
+            int Unaligned = 0 
+            int Wrong_Barcode_Length = 0
+            int Residual_N = 0
+            int Insufficient_Flank = 0
+            int Clustered = 0
 
         LINE_3 = '\n+\n'.encode('ascii')
         END = '\n'.encode('ascii')
         with open(filenames[0], 'wb') as training_file, open(filenames[1], 'wb') as cluster_file:
-            for i, line in enumerate(input_file):
-                j = i%4
-                if j == 0:
-                    header = line
-                elif j == 1:
-                    c_DNA = line[:-1]
-                    DNA = c_DNA.decode('ascii')
-                elif j == 3:
-                    if ':Y:'.encode('ascii') in header:
-                        outcomes['Filtered'] += 1
-                        continue
-                    if DNA in self.alignments:
-                        start, stop, score = self.alignments[DNA]
-                    else:
-                        start, stop = self.find_start_stop(c_DNA)
-                        c_DNA_scoring = c_DNA[start - self.alignment_flank:stop + self.alignment_flank]
-                        score = nw.char_score(c_DNA_scoring, self.c_ref)/self.max_score
-                        self.alignments[DNA] = start, stop, score
-                    scores[score] += 1
-                    if score < self.min_align_score:
-                        outcomes['Unaligned'] += 1
-                        self.unaligned[DNA] = 1 + self.unaligned.get(DNA, 0)
-                        continue
-                    if abs((stop - start) - BL) > self.allowable_deviation:
-                        outcomes['Wrong Barcode Length'] += 1
-                        continue
-                    training_DNA = DNA[start - TF:start]+DNA[stop:stop + TF]
-                    QC = line
-                    if 'N' not in training_DNA and len(training_DNA) == 2*TF:
-                        training_file.write(header+training_DNA.encode('ascii')+LINE_3+QC[start-TF:start]+QC[stop:stop+TF]+END)
-                    if 'N' in DNA:
-                        DNA = self.repair_N(c_DNA)
-                    cluster_DNA = DNA[start - CF:start+BL+CF]
-                    if 'N' in cluster_DNA:
-                        outcomes['Residual N'] += 1
-                        continue
-                    if len(cluster_DNA) != (BL+ 2*CF):
-                        outcomes['Insufficient Flank'] += 1
-                        continue
-                    outcomes['Clustered'] += 1
+            while True:
+                header = input_file.readline()
+                if not header:
+                    break
+                c_DNA = input_file.readline()[self.pre_slice]
+                input_file.readline()
+                QC = input_file.readline()[self.pre_slice]
+                if not QC:
+                    raise RuntimeError("Input FASTQ file was not 4x lines long")
+                DNA = c_DNA.decode('ascii')
+                if ':Y:'.encode('ascii') in header:
+                    Filtered += 1
+                    continue
+                if DNA in self.alignments:
+                    start, stop, score = self.alignments[DNA]
+                else:
+                    start, stop = self.find_start_stop(c_DNA)
+                    c_DNA_scoring = c_DNA[start - self.alignment_flank:stop + self.alignment_flank]
+                    score = nw.char_score(c_DNA_scoring, self.c_ref)/self.max_score
+                    self.alignments[DNA] = start, stop, score
+                scores[score] += 1
+                if score < self.min_align_score:
+                    Unaligned += 1
+                    self.unaligned[DNA] = 1 + self.unaligned.get(DNA, 0)
+                    continue
+                if abs((stop - start) - BL) > self.allowable_deviation:
+                    Wrong_Barcode_Length += 1
+                    continue
+                training_DNA = DNA[start - TF:start]+DNA[stop:stop + TF]
+                if 'N' not in training_DNA and len(training_DNA) == 2*TF:
+                    training_file.write(header+training_DNA.encode('ascii')+LINE_3+QC[start-TF:start]+QC[stop:stop+TF]+END)
+                if 'N' in DNA:
+                    DNA = self.repair_N(c_DNA)
+                cluster_DNA = DNA[start - CF:start+BL+CF]
+                if 'N' in cluster_DNA:
+                    Residual_N += 1
+                    continue
+                if len(cluster_DNA) != (BL+ 2*CF):
+                    Insufficient_Flank += 1
+                else:
+                    Clustered += 1
                     cluster_file.write(header+cluster_DNA.encode('ascii')+LINE_3+QC[start-CF:start+BL+CF]+END)
 
         self.instruments[sample] = header.decode('ascii').split(':')[0]
         self.scores[sample] = pd.Series(scores)
-        return pd.Series(outcomes)
+        return pd.Series([Filtered,   Unaligned,   Wrong_Barcode_Length,   Residual_N,   Insufficient_Flank,   Clustered], 
+         index=pd.Index(['Filtered', 'Unaligned', 'Wrong Barcode Length', 'Residual N', 'Insufficient Flank', 'Clustered']))
 
 import re
 class singleMismatcher(object):

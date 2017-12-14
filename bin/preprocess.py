@@ -44,6 +44,8 @@ parser.add_argument('--alignment_flank', type=int, default=22, help='# of bases 
 parser.add_argument('--training_flank', type=int, default=18, help='# of bases flanking the degenerate region to be used to develop the DADA2 error model.')
 parser.add_argument('-M', '--min_align_score', type=float, default=0.6, help='Minimum alignment score needed to keep read, Range [0, 1).')
 parser.add_argument('--compression', default='bz2', choices=['bz2', 'gzip', 'none'], help='Compression algorithm for saved file.')
+parser.add_argument('--symmetric_flanks', action='store_true', help='Automatically symmetrizes the length of the forward and aft flanks to the barcode--saves memory/time.')
+parser.add_argument('--trim', type=int, default=5, help='Trim reads by specified length on both flanks--works with --symmetric_flanks.')
 ###############################################################################
 args = parser.parse_args()
 
@@ -64,7 +66,8 @@ else:
     raise ValueError("Unknown compression: "+args.compression)
 
 if args.parallel:
-    from tuba_seq.pmap import low_memory_pmap as map
+    #from tuba_seq.pmap import low_memory_pmap as map
+    from tuba_seq.pmap import pmap as map
 
 for Dir in output_dirs:
     os.makedirs(Dir, exist_ok=True)
@@ -80,6 +83,7 @@ master_read.scores = manager.dict()
 master_read.unaligned = manager.dict()
 master_read.alignments = manager.dict()
 master_read.instruments = manager.dict()
+
 
 def process_fastq(filename):
     sample = os.path.basename(filename.partition(fastq_ext)[0])
@@ -103,26 +107,12 @@ def process_fastq(filename):
     Log('Sample {:} ({:.2f}M Reads): '.format(sample, reads*1e-6)+
         ','.join(['{:.1%} {:}'.format(num/reads, name) for name, num in outcomes.iteritems() if num > 0])+'.')
 
-    if args.derep:
-        Log("De-replicating outputs for "+sample+" ...")
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore") 
-            for f in filenames:
-                try:
-                    derep = dada2.derepFastq(f, verbose=args.verbose)
-                    R_base.saveRDS(derep, file=f.replace(fastq_ext, '.rds'))
-                except Exception: 
-                    print("Could not derep "+f)
-                else:
-                    os.remove(f)
-    
     return sample, outcomes
 
 outcomes = pd.DataFrame(dict(map(process_fastq, files))).T
 
 scores = pd.DataFrame(dict(master_read.scores)).sum(axis=1) 
 unaligned = pd.Series(dict(master_read.unaligned))
-
 total_reads = outcomes.sum().sum()
 
 PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
@@ -145,11 +135,13 @@ if len(instruments.value_counts()) > 1:
     Log("This run contains fastq files from two different Illumina machines. This is not recommended.", True)
     Log(instruments, True)
 
-ax = plt.gca()
-ax.hist(scores.index.values, weights=scores.values, bins=numpy.linspace(0, 1, 40))
-ax.axvline(args.min_align_score, color='k', linestyle='dashed')
-ax.set(xlabel='Alignment Score', ylabel='Observations')
-plt.savefig(histogram_filename)
+try:
+    ax = plt.hist(scores.index.values, weights=scores.values, bins=numpy.linspace(0, 1, 40))
+    ax.axvline(args.min_align_score, color='k', linestyle='dashed')
+    ax.set(xlabel='Alignment Score', ylabel='Observations')
+    plt.savefig(histogram_filename)
+except Exception:
+    print("Couldn't create alignment score histogram, perhaps you need to configure matplotlibrc?")
 
 totals = outcomes.sum()
 totals['PhiX'] = unaligned.loc[PhiX].sum()
@@ -157,3 +149,19 @@ totals['PhiX'] = unaligned.loc[PhiX].sum()
 Log("Summary of the {:.2f}M processed reads in {:}:".format(total_reads*1e-6, args.input_dir), True, header=True)
 Log((totals/total_reads).to_string(float_format='{:.2%}'.format), True)
 
+if args.derep:
+    Log("De-replicating outputs...")
+    filenames = [os.path.join(Dir, sample)+fastq_ext+compression_ext for Dir in output_dirs for sample in outcomes.index.values]
+    sizes = list(map(os.path.getsize, filenames))
+    files_by_size = pd.Series(sizes, index=filenames).sort_values() 
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore") 
+        for f in files_by_size.keys():
+            try:
+                derep = dada2.derepFastq(f, verbose=args.verbose)
+                R_base.saveRDS(derep, file=f.replace(fastq_ext, '.rds'))
+            except Exception: 
+                Log("Could not derep "+f, True)
+            else:
+                os.remove(f)
+    
