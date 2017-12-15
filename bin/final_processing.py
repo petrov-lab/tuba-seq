@@ -87,9 +87,8 @@ if args.report:
     X = pd.DataFrame({'x^{:}'.format(i):x**i for i in range(args.order+1)}, index=x)
     plot_data = df.query("GCs >= {:} and GCs <= {:}".format(*X_lim.values))
     import seaborn as sns
-    from matplotlib.pyplot import gca, savefig
-    ax = gca()
-    sns.pointplot(x='GCs', y=0, estimator=lambda x: np.exp(trimmed_mean(x)) if not args.linear else trimmed_mean(x), data=plot_data, ax=ax, join=False)
+    from tuba_seq.reports import plt
+    ax = sns.pointplot(x='GCs', y=0, estimator=lambda x: np.exp(trimmed_mean(x)) if not args.linear else trimmed_mean(x), data=plot_data, join=False)
     P = model.predict(X.values) if args.linear else np.exp(model.predict(X.values))
     ax.plot(x - x[0], P)
     ax.text(0.95, 0.95, 'Adjusted $R^2$ = {:.0%}'.format(model.rsquared_adj), transform=ax.transAxes, ha='right', va='top')
@@ -101,7 +100,7 @@ if args.report:
     keep = (xrange_GCs > X_lim.iloc[0])&(xrange_GCs < X_lim.iloc[1])
     ax.xaxis.set_ticks(xrange_GCs[keep] - x[0])
     ax.xaxis.set_ticklabels(list(map(str, xrange_frac[keep])))
-    savefig("Quality_of_GC_fit", transparent=True, bbox_inches='tight')
+    plt.savefig("Quality_of_GC_fit", transparent=True, bbox_inches='tight')
 
     
 
