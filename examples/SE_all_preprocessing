@@ -4,11 +4,10 @@ set -ex
 TUBA_PATH="$HOME/tuba-seq/bin"
 DATA_DIR=`pwd` 
 
-echo "Analyzing single-end files in $DATA_DIR."
-
 $TUBA_PATH/preprocess.py -p -s --symmetric_flanks --trim=5 -d $DATA_DIR/original/;
 $TUBA_PATH/DADA2_error_training.R $DATA_DIR/training/ >> DADA2_error_training.LOG;
 
+set +x
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";
 echo "This task ought to be broadcasted onto a cluster.";
 echo "See DADA2_clustering.R for details."

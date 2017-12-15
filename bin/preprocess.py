@@ -8,10 +8,7 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
 import warnings
-
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
+from tuba_seq.graphs import plt
 
 fastq_ext = '.fastq'
 histogram_filename = 'alignment_histogram.pdf'
