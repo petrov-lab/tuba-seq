@@ -3,6 +3,8 @@ import argparse, os
 import pandas as pd
 import numpy as np
 from tuba_seq.shared import logPrint
+from tuba_seq.reports import plt
+import seaborn as sns
 
 tuba_seq_dir = os.path.dirname(__file__)
 
@@ -86,8 +88,6 @@ if args.report:
     x = np.linspace(*X_lim.values, num=200)
     X = pd.DataFrame({'x^{:}'.format(i):x**i for i in range(args.order+1)}, index=x)
     plot_data = df.query("GCs >= {:} and GCs <= {:}".format(*X_lim.values))
-    import seaborn as sns
-    from tuba_seq.reports import plt
     ax = sns.pointplot(x='GCs', y=0, estimator=lambda x: np.exp(trimmed_mean(x)) if not args.linear else trimmed_mean(x), data=plot_data, join=False)
     P = model.predict(X.values) if args.linear else np.exp(model.predict(X.values))
     ax.plot(x - x[0], P)
