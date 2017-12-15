@@ -47,6 +47,9 @@ def contamination(tumor_numbers, alpha=0.05):
     M = tumor_numbers.unstack(level='Mouse')
     I = M.notnull()
     N_mice = len(I.columns)
+    if N_mice < 2:
+        print("Can't find contaminants with only 1 mouse.")
+        return pd.DataFrame()
     m = N_mice*(N_mice - 1)/2
 
     def find_contaminants(S_m):
@@ -56,6 +59,7 @@ def contamination(tumor_numbers, alpha=0.05):
         N_overlap = Overlap.sum()
         N_both = I_other.sum() + N - N_overlap
         df = pd.DataFrame(dict(N_both=N_both, enrichment=N_overlap/N_both))
+        print(df)
         regression = ols("enrichment ~ N_both", data=df).fit()
         out = regression.outlier_test()
         out.index.names = ['is contaminated by']
@@ -70,14 +74,12 @@ def barcode_diversity(tumor_numbers, plot=True):
         # Frequency profile
     barcodes = tumor_numbers.index.get_level_values('barcode')
     random_barcode_length = len(barcodes.values[0])
-    PWM = pd.concat({i:barcodes.str.get(i).value_counts()/len(barcodes) for i in range(random_barcode_length)})
-    PWM.index.names = ['Location', 'Nucleotide']
-    PWM.name = 'Frequency'
+    PWM = pd.DataFrame({i:barcodes.str.get(i).value_counts() for i in range(random_barcode_length)}).fillna(0)/len(barcodes)
     if plot:
         f, (ax1, ax2, ax3) = plt.subplots(3, figsize=(6, 12))
         base = np.zeros(random_barcode_length)
         for nuc in 'ACGT':
-            X = PWM.loc[:, nuc]
+            X = PWM.loc[nuc]
             ax1.bar(X.index.values, X, bottom=base, label=nuc)
             base += X.values
         yticks = [0, 0.25, 0.5, 0.75, 1]
@@ -94,7 +96,7 @@ def barcode_diversity(tumor_numbers, plot=True):
         from scipy.optimize import brentq
         def P_0(p):
             return (1 - p)**N
-        p = brentq(lambda p: mu_geq1 - p*N/P_0(p), 0, mu_geq1/N, full_output=False)
+        p = brentq(lambda p: mu_geq1 - p*N/P_0(p), 0, mu_geq1/N - np.finfo(np.double).eps, full_output=False)
         unobserved = observed*P_0(p)/(1 - P_0(p))
 
         def collision_probability(N):

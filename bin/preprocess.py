@@ -44,7 +44,7 @@ parser.add_argument('-k',  '--skip', action='store_true', help='Skip files that 
 
 parser.add_argument('-a', '--allowable_deviation', type=int, default=4, help="Length of Indel to tolerate before discarding reads.")
 parser.add_argument('--alignment_flank', type=int, default=22, help='# of bases flanking the degenerate region to be used to score the quality of the read.')
-parser.add_argument('--training_flank', type=int, default=18, help='# of bases flanking the degenerate region to be used to develop the DADA2 error model.')
+parser.add_argument('--training_flank', type=int, default=22, help='# of bases flanking the degenerate region to be used to develop the DADA2 error model.')
 parser.add_argument('-M', '--min_align_score', type=float, default=0.6, help='Minimum alignment score needed to keep read, Range [0, 1).')
 parser.add_argument('--compression', default='bz2', choices=['bz2', 'gzip', 'none'], help='Compression algorithm for saved file.')
 parser.add_argument('--symmetric_flanks', action='store_true', help='Automatically symmetrizes the length of the forward and aft flanks to the barcode--saves memory/time.')

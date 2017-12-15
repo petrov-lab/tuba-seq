@@ -61,13 +61,6 @@ class fastqDF(pd.DataFrame):
                 raise RuntimeError("Inconsistent lengths in FASTQ File")
         return self
 
-    @classmethod
-    def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.667):
-        counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
-        PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
-        master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
-        return cls(master_read, args)
-
     def query(self, s, **kargs):
         return super(fastqDF, self).query(s, **kargs)
 

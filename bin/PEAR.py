@@ -27,8 +27,8 @@ attenuation_cap = 60
 max_attenuated = int(attenuation_cap/attenuation_rate)
 max_PHRED = 90
 
-no_base = {i:int(i/attenuation_rate) for i in range(attenuation_cap)}.update(
-    {i:i-attenuation_cap+max_attenuated for i in range(attenuation_cap, max_PHRED)})
+no_base = {i:int(i/attenuation_rate) for i in range(attenuation_cap)}
+no_base.update({i:i-attenuation_cap+max_attenuated for i in range(attenuation_cap, max_PHRED)})
 
 PHRED_compressor = {k+ASCII_BASE:v+ASCII_BASE for k, v in no_base.items()}
 

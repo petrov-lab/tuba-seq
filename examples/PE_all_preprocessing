@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e 
+set -ex 
 
 TUBA_PATH="$HOME/tuba-seq/bin"      # PATH to tuba-seq executables
 DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
@@ -12,7 +12,7 @@ echo "Analyzing paired-end fastq files in $DATA_DIR."
 
 cd $DATA_DIR;
 $TUBA_PATH/PEAR.py -p -m $MERGE_DIR $FORWARD_READS $REVERSE_READS;
-$TUBA_PATH/preprocess.py -p -s -d $MERGE_DIR;
+$TUBA_PATH/preprocess.py -p -s --symmetric_flanks --trim=10 -d $MERGE_DIR;
 $TUBA_PATH/DADA2_error_training.R training/ >> DADA2_error_training.LOG;
 
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";

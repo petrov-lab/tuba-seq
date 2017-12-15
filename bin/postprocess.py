@@ -2,7 +2,7 @@
 import argparse, os 
 import pandas as pd
 import numpy as np
-from tuba_seq.fastq import MasterRead, singleMismatcher
+from tuba_seq.fastq import singleMismatcher
 from tuba_seq.shared import logPrint
 
 
@@ -65,6 +65,14 @@ file. Tolerates a single mismatch and small indel when searching for the sgID.
         row['target'] = "Unknown" 
     return row
 
+def infer_master_read(DNAs, max_random_base_frequency=0.667):
+    counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
+    PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
+    master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
+    print('Assuming Master Read is:')
+    print(master_read.replace('N', '.'))
+    return master_read
+
 def load_clusters_annotate_sgRNAs_and_merge(filename, columns_to_keep=list(merge_rules.keys())+['sequence']):
     """load_clusters_annotate_sgRNAs_and_merge(filename) -> dict with output & stats.
 
@@ -72,7 +80,7 @@ This function combines the loading, annotation, and merging steps to permit para
 """
     df = pd.read_csv(filename, usecols=columns_to_keep) if not args.bartender else pd.read_csv(filename, usecols=[1, 3], header=0, names=['sequence', 'abundance'])
         # Immediately trim sequences down to the maximum indel tolerated. 
-    master_read = MasterRead.infer_from_DNAs(df['sequence'][:1000])
+    master_read = infer_master_read(df['sequence'][:10000])
     start = master_read.index("N")
     stop = master_read.rindex("N")+1
     assert len(master_read[:start]) == len(master_read[stop:]), "DADA2 clusters seem to have asymmetric-lengthed flanks"
