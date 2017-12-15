@@ -2,7 +2,7 @@
 import argparse, os 
 import pandas as pd
 import numpy as np
-from tuba_seq.fastq import infer_master_read, singleMismatcher
+from tuba_seq.fastq import MasterRead, singleMismatcher
 from tuba_seq.shared import logPrint
 
 
@@ -72,7 +72,7 @@ This function combines the loading, annotation, and merging steps to permit para
 """
     df = pd.read_csv(filename, usecols=columns_to_keep) if not args.bartender else pd.read_csv(filename, usecols=[1, 3], header=0, names=['sequence', 'abundance'])
         # Immediately trim sequences down to the maximum indel tolerated. 
-    master_read = infer_master_read(df['sequence'][:1000])
+    master_read = MasterRead.infer_from_DNAs(df['sequence'][:1000])
     start = master_read.index("N")
     stop = master_read.rindex("N")+1
     assert len(master_read[:start]) == len(master_read[stop:]), "DADA2 clusters seem to have asymmetric-lengthed flanks"

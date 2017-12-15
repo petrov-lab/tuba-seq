@@ -118,7 +118,8 @@ unaligned = pd.Series(dict(master_read.unaligned))
 total_reads = outcomes.sum().sum()
 
 PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
-unknown_DNAs = (unaligned.loc[~PhiX]/total_reads).loc[lambda x: x >= args.fraction]
+non_PhiX = unaligned.loc[~PhiX]
+unknown_DNAs = (non_PhiX/total_reads).loc[lambda x: x >= args.fraction]
 
 if args.search_blast and len(unknown_DNAs) > 0: 
     from tuba_seq.blast import sleuth_DNAs
@@ -147,6 +148,7 @@ except Exception:
 
 totals = outcomes.sum()
 totals['PhiX'] = unaligned.loc[PhiX].sum()
+totals['Unaligned'] = non_PhiX.sum() 
 
 Log("Summary of the {:.2f}M processed reads in {:}:".format(total_reads*1e-6, args.input_dir), True, header=True)
 Log((totals/total_reads).to_string(float_format='{:.2%}'.format), True)

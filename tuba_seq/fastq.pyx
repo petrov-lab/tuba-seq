@@ -61,6 +61,13 @@ class fastqDF(pd.DataFrame):
                 raise RuntimeError("Inconsistent lengths in FASTQ File")
         return self
 
+    @classmethod
+    def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.667):
+        counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
+        PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
+        master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
+        return cls(master_read, args)
+
     def query(self, s, **kargs):
         return super(fastqDF, self).query(s, **kargs)
 
@@ -148,13 +155,6 @@ class MasterRead(object):
         pre_slice = (slice(start-aft_length, stop+aft_length) if start > aft_length  else slice(args.trim, stop+start-args.trim)) if args.symmetric_flanks else slice(0, len(self.full)) 
         self.pre_slice = slice(pre_slice.start + args.trim, pre_slice.stop - args.trim)
         
-    @classmethod
-    def infer_from_DNAs(cls, DNAs, args, max_random_base_frequency=0.667):
-        counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
-        PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
-        master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
-        return cls(master_read, args)
-
     def find_start_stop(self, seq): 
         """score=score of [match, mismatch, gap_start, gap_extend]"""
         seq_align, ref_align, _score = nw.char_align(seq, self.c_ref) 
