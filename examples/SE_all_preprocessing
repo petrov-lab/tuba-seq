@@ -7,7 +7,7 @@ DATA_DIR=`pwd`
 echo "Analyzing single-end files in $DATA_DIR."
 
 $TUBA_PATH/preprocess.py -p -s --symmetric_flanks --trim=5 -d $DATA_DIR/original/;
-$TUBA_PATH/DADA2_error_training.R $DATA_DIR/training_derep.RData >> DADA2_error_training.LOG;
+$TUBA_PATH/DADA2_error_training.R $DATA_DIR/training_derep.rds >> DADA2_error_training.LOG;
 
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";
 echo "This task ought to be broadcasted onto a cluster.";
