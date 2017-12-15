@@ -27,6 +27,11 @@ attenuation_cap = 60
 max_attenuated = int(attenuation_cap/attenuation_rate)
 max_PHRED = 90
 
+no_base = {i:int(i/attenuation_rate) for i in range(attenuation_cap)}.update(
+    {i:i-attenuation_cap+max_attenuated for i in range(attenuation_cap, max_PHRED)})
+
+PHRED_compressor = {k+ASCII_BASE:v+ASCII_BASE for k, v in no_base.items()}
+
 fastq_ext = '.fastq'
 
 args = parser.parse_args()
@@ -55,7 +60,6 @@ else:
         for f in reverse_only:
             Log(forward_only)
 
-PHRED_compressor = {ASCII_BASE + i:(ASCII_BASE + int(i/attenuation_rate)) if i < attenuation_cap else (ASCII_BASE + i - attenuation_cap + max_attenuated) for i in range(max_PHRED)}
 stats = {'Assembled reads', 'Discarded reads', 'Not assembled reads'}
 tallies = dict()
 
