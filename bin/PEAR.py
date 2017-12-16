@@ -21,16 +21,26 @@ parser.add_argument('-k', '--keep', action='store_true', help='Keep unassembled 
 parser.add_argument('-n', '--min_length', type=int, help="Minimum length for a merged sequence.", 
     default=(22*2)+29) #Default = minimum length necessary for successful preprocessing, under default conditions.  
 
+# When merging paired-end reads, a combined PHRED score must be assigned to each
+# nucleotide. From the trained error model, we can adjudicate whether the combined 
+# PHRED score faithfully describes the true error rate. For example, a combined
+# PHRED score of 40 *ought* to yield the expected base 99.99% of the time. PEAR 
+# simply adds PHRED scores and appears to be too aggressive, i.e. a PHRED score 
+# of 40 is correct <99.99% of the time. Thus, the PHRED scores are compressed:
+# PHRED scores 1-60 are divided by three, while PHRED scores 
+# above 60 are not compressed, but reduced by 40--to generate an uninterrupted 
+# mapping. DADA2 is designed to automatically determine the true error rate of 
+# each PHRED score, so none of this matters too much; however, DADA2 makes a 
+# linear assumption during read-dereping that is inappropriate when the true 
+# error rate and reported error rates disagree by several decades--as they will 
+# if the PHRED scores aren't (crudely) compressed. 
+
 ASCII_BASE = 33
 attenuation_rate = 3
 attenuation_cap = 60
 max_attenuated = int(attenuation_cap/attenuation_rate)
-max_PHRED = 90
-
-no_base = {i:int(i/attenuation_rate) for i in range(attenuation_cap)}
-no_base.update({i:i-attenuation_cap+max_attenuated for i in range(attenuation_cap, max_PHRED)})
-
-PHRED_compressor = {k+ASCII_BASE:v+ASCII_BASE for k, v in no_base.items()}
+max_PHRED = ASCII_BASE + 94
+PHRED_compressor = {ASCII_BASE + i:(ASCII_BASE + int(i/attenuation_rate)) if i < attenuation_cap else (ASCII_BASE + i - attenuation_cap + max_attenuated) for i in range(max_PHRED)}
 
 fastq_ext = '.fastq'
 
@@ -72,7 +82,7 @@ for File in matches:
                 '-o':output_file,
                 '-n':args.min_length,
                 '-j':CPUs if args.parallel else 1,  # No. of threads to use
-                '-c':0}                             # Eliminate PHRED Cap
+                '-c':max_PHRED}                             
     
     command = [args.cmd]+[str(s) for item in options.items() for s in item]
     Log('Analyzing {:} with command:\n{:}'.format(sample, ' '.join(command)))

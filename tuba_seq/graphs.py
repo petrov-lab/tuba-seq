@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 def percentile_plot(data, ax, order, 
-    baseline=True, percentiles=None, 
+    baseline=True, #percentiles=None, 
     hue_map=None, alpha=0.05, inert_darkness=0.25, sgRNA_spacing=0.1, saturation_of_lightest_percentile=1, palette_constructor=sns.light_palette,
     add_legend=True, legend_text_size='x-small',
     dot_kwargs=dict(marker='.', linewidths=1, edgecolors='k', s=350, zorder=3),
@@ -12,11 +12,11 @@ def percentile_plot(data, ax, order,
     xtick_kwargs=dict(rotation=90, style='italic', size=20, ha='center'),
     baseline_kwargs=dict(color='k', ls='dotted', lw=1)):
 
-    if hue_map is None:     # Generate unique hues for each sgID, if not provided.
+    if hue_map is None:     # Generate unique hues for each target, if not provided.
         hue_map = sns.husl_palette(n_colors=len(order), s=1, l=inert_darkness) 
     
-    for i, sgID in enumerate(order):        # Plot percentile curves for each sgID 1-by-1
-        df = data.query('sgID == @sgID')
+    for i, target in enumerate(order):        # Plot percentile curves for each sgID 1-by-1
+        df = data.query('target == @target')
         X = i + np.linspace(0, 1-sgRNA_spacing, num=len(df), endpoint=False) 
         Y = df['true']
         CI = df.loc[['low', 'high']] # extract the Confidence Interval manually. 
@@ -27,9 +27,9 @@ def percentile_plot(data, ax, order,
         
         n_colors = len(Y) + saturation_of_lightest_percentile
         inert_colors = palette_constructor(3*(inert_darkness,), n_colors=n_colors)[saturation_of_lightest_percentile:]
-        hue_colors = palette_constructor(hue_map[sgID], n_colors=n_colors)[saturation_of_lightest_percentile:]
+        hue_colors = palette_constructor(hue_map[target], n_colors=n_colors)[saturation_of_lightest_percentile:]
         colors = [hue if pval < alpha else inert for hue, inert, pval in zip(hue_colors, inert_colors, df['P-value'])]
-        ax.scatter(X, Y, c=colors, label=sgID, **dot_kwargs)
+        ax.scatter(X, Y, c=colors, label=target, **dot_kwargs)
     
     if baseline:
         ax.axhline(1, **baseline_kwargs)
@@ -145,11 +145,13 @@ $\alpha = {alpha:.2f}$""".format(**PL_summary), ha='right', va='top')
     ax.set( ylabel='Probability Density', xlabel='Cells', title=label, xlim=xlim, ylim=ylim )
     return ax
 
-def fancy_percentage_formatter(x):
-    decimal_places = -np.floor(np.log10(x*100))
-    return '{:g}%'.format(round(x*100, min(0, decimal_places)))
+def fancy_percentage_formatter(x, sig_figs=2):
+    if x == 0.:
+        return '0%'
+    rx = round(x, -int(np.floor(np.log10(abs(x))) - (sig_figs - 1)))
+    return '{:g}%'.format(rx*100)
 
-def jitter_plot(S, ax, order, colors,
+def jitter_plot(S, order, colors=None, ax=plt.gca(),
                 annotate_mean=True, tumor_numbers=True, decade_percentages=False,
                 jitter=0.4, scale=5e-4, text_size='large', text_lw=3, mean_bar_width=0.9, 
                 xtick_kwargs=dict(rotation=90, style='italic', size=20, ha='center'),
@@ -159,16 +161,19 @@ def jitter_plot(S, ax, order, colors,
     X = np.arange(len(order))
     xlim = -0.5, X[-1] + 0.5
     
-    gb = S.groupby(level='sgID')
+    if colors is None:
+        colors = dict(zip(order, sns.color_palette(n_colors=len(order))))
+
+    gb = S.groupby(level='target')
     
     if annotate_mean:
-        from tools import LN_mean
+        from tuba_seq.tools import LN_mean
         ax.hlines(gb.apply(LN_mean).loc[order], X-mean_bar_width/2, X+mean_bar_width/2, **mean_bar_kwargs)
     
-    for i, rna in enumerate(order):
+    for X_i, rna in zip(X, order):
         Y = gb.get_group(rna).values
-        X = i + 2*jitter*np.random.random(len(Y)) - jitter
-        ax.scatter(X, Y, s=Y*scale, color=colors[rna], label=rna, zorder=10)
+        x = X_i + 2*jitter*np.random.random(len(Y)) - jitter
+        ax.scatter(x, Y, s=Y*scale, color=colors[rna], label=rna, zorder=10)
     
     if tumor_numbers:
         y = S.max()*1.05
@@ -176,8 +181,8 @@ def jitter_plot(S, ax, order, colors,
         for x, n in enumerate(N):
             ax.text(x, y, '$N=$\n${:,}$'.format(n), ha='center', va='bottom')
     if decade_percentages:
-        sns.set_style('whitegrid')
-        decade_mins = ax.get_yticks()[:-1]
+        decade_mins = pow(10, np.arange(np.floor(np.log10(S.min())), np.log10(S.max())))
+        ax.hlines(decade_mins, *xlim, color='0.25', lw=1, linestyles='dashed')
         def decade_fraction(S, decade_min):
             return ((S >= decade_min)*(S < decade_min*10)).mean()
         
@@ -185,11 +190,11 @@ def jitter_plot(S, ax, order, colors,
             fractions = gb.agg(decade_fraction, decade_min)
             if fractions.sum() == 0.:
                 continue
-            y = decade_min + np.sqrt(10)
-            for x, frac in fractions.loc[order].values:
+            y = decade_min*np.sqrt(10)
+            for x, frac in enumerate(fractions.loc[order].values):
                 text = ax.text(x, y, fancy_percentage_formatter(frac), size=text_size, ha='center', va='center', color='w', weight='bold', zorder=15)
                 text.set_path_effects([path_effects.Stroke(linewidth=text_lw, foreground='black', capstyle='round', joinstyle='round'), path_effects.Normal()])       
-
+    
     ax.set(xlim=xlim, ylabel='Cells (Absolute no.)', yscale='log')
     ax.xaxis.set_ticks(X)
     ax.xaxis.set_ticklabels(order, **xtick_kwargs)

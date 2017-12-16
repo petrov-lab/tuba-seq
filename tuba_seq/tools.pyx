@@ -18,6 +18,7 @@ def LN_mean(data):
     return np.exp(X + 0.5*X2)
 
 def xformed_LN_mean(ndarray[dtype=double, ndim=1] LN_x):
+    """deprecated"""
     cdef:
         double L = len(LN_x)
         ndarray[dtype=double, ndim=1] One = np.ones_like(LN_x)
@@ -190,7 +191,7 @@ merge_func : Function to merge tumors in replicate samples (default: 'mean').
             raise ValueError("Merger must have a `name` attribute to label this new column.")
         
         tumors.insert(0, merger.name, merger.loc[tumors['Sample']].values)
-        return tumors.groupby(meta_columns+[merger.name]+ix_names)["Cells"].agg(merge_func)
+        return tumors.groupby(meta_columns+[merger.name]+ix_names[1:])["Cells"].agg(merge_func)
     else:     
         return tumors.set_index(meta_columns+ix_names)['Cells'].sort_index()
 

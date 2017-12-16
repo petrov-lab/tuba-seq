@@ -140,8 +140,9 @@ try:
     ax.axvline(args.min_align_score, color='k', linestyle='dashed')
     ax.set(xlabel='Alignment Score', ylabel='Observations')
     plt.savefig(histogram_filename)
-except Exception:
+except Exception as e:
     print("Couldn't create alignment score histogram, perhaps you need to configure matplotlibrc?")
+    print(e)
 
 totals = outcomes.sum()
 totals['PhiX'] = unaligned.loc[PhiX].sum()
@@ -159,10 +160,11 @@ if args.derep:
         warnings.simplefilter("ignore") 
         for f in files_by_size.keys():
             try:
+                print(f)
                 derep = dada2.derepFastq(f, verbose=args.verbose)
                 R_base.saveRDS(derep, file=f.replace(fastq_ext, '.rds'))
             except Exception: 
                 Log("Could not derep "+f, True)
-            else:
-                os.remove(f)
+            #else:
+                #os.remove(f)
     
