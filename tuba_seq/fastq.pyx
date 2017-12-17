@@ -212,7 +212,9 @@ class MasterRead(object):
                     continue
                 training_DNA = DNA[start - TF:start]+DNA[stop:stop + TF]
                 if 'N' not in training_DNA and len(training_DNA) == 2*TF:
-                    training_file.write(header+training_DNA.encode('ascii')+LINE_3+QC[start-TF:start]+QC[stop:stop+TF]+END)
+                    tQC = QC[start-TF:start]+QC[stop:stop+TF]
+                    assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
+                    training_file.write(header+training_DNA.encode('ascii')+LINE_3+tQC+END)
                 if 'N' in DNA:
                     DNA = self.repair_N(c_DNA)
                 cluster_DNA = DNA[start - CF:start+BL+CF]
@@ -223,7 +225,9 @@ class MasterRead(object):
                     Insufficient_Flank += 1
                 else:
                     Clustered += 1
-                    cluster_file.write(header+cluster_DNA.encode('ascii')+LINE_3+QC[start-CF:start+BL+CF]+END)
+                    cQC = QC[start-CF:start+BL+CF]
+                    assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
+                    cluster_file.write(header+cluster_DNA.encode('ascii')+LINE_3+cQC+END)
 
         self.instruments[sample] = header.decode('ascii').split(':')[0]
         self.scores[sample] = pd.Series(scores)
