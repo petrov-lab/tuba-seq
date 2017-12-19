@@ -68,7 +68,7 @@ if (length(args) == 1) {
     } else {
         stop("Found input files, but no slurm nor SGE task ID.")
     }
-    derep.file <- os.path.join(in.directory, derep.base);
+    derep.file <- file.path(in.directory, derep.base);
 }
 
 derep <- readRDS(derep.file)

@@ -90,8 +90,8 @@ model.errs <- colMeans(model[correct_nuc,])
 
 message("Estimated a total error rate of ", sprintf("%.4f%%",(sum(totals) - sum(corrects))*100/sum(totals) ), " (0.1 - 0.5% is typical.) By Phred Score:")
 
-#cohorts <- if(paired.end.reads) c(0, 20, 40, 50, 56, 58, 60, 61, 62, 63) else c(0, 20, 30, 36, 38, 39, 40, 41)
-cohorts <- c(0, 20, 30, 36, 38, 39, 40, 41)
+cohorts <- if(paired.end.reads) c(0, 20, 40, 50, 56, 58, 60, 61, 62, 63) else c(0, 20, 30, 36, 38, 39, 40, 41)
+#cohorts <- c(0, 20, 30, 36, 38, 39, 40, 41)
 
 message("Phred Range | Error Rate | LOWESS-Average | Millions of Nucleotides in Range")
 for (i in 1:(length(cohorts)-1)) {
