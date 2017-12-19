@@ -60,14 +60,15 @@ if (length(args) == 1) {
     slurm.id <- Sys.getenv("SLURM_ARRAY_TASK_ID");
     sge.id <- Sys.getenv("SGE_TASK_ID");
     if (slurm.id != "") {
-        derep.file <- dereped.files[[strtoi(slurm.id)]];
+        derep.base <- dereped.files[[strtoi(slurm.id)]];
         message("Running slurm job #", slurm.id, " of ", length(dereped.files), ".")
     } else if (sge.id != "") {
-        derep.file <- dereped.files[[strtoi(sge.id)]];
+        derep.base <- dereped.files[[strtoi(sge.id)]];
         message("Running SGE job #", sge.id, " of ", length(dereped.files), ".")
     } else {
         stop("Found input files, but no slurm nor SGE task ID.")
     }
+    derep.file <- os.path.join(in.directory, derep.base);
 }
 
 derep <- readRDS(derep.file)

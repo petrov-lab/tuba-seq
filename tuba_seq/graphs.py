@@ -176,7 +176,7 @@ def jitter_plot(S, order, colors=None, ax=plt.gca(),
         ax.scatter(x, Y, s=Y*scale, color=colors[rna], label=rna, zorder=10)
     
     if tumor_numbers:
-        y = S.max()*1.1
+        y = S.max()*1.15
         N = gb.count()[order].values
         for x, n in enumerate(N):
             ax.text(x, y, '$N=$\n${:,}$'.format(n), ha='center', va='bottom')

@@ -8,7 +8,6 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
 import warnings
-from tuba_seq.graphs import plt
 
 fastq_ext = '.fastq'
 histogram_filename = 'alignment_histogram.pdf'
@@ -136,12 +135,14 @@ if len(instruments.value_counts()) > 1:
     Log(instruments, True)
 
 try:
-    ax = plt.hist(scores.index.values, weights=scores.values, bins=numpy.linspace(0, 1, 40))
+    from tuba_seq.graphs import plt
+    ax = plt.gca()
+    ax.hist(scores.index.values, weights=scores.values, bins=numpy.linspace(0, 1, 40))
     ax.axvline(args.min_align_score, color='k', linestyle='dashed')
     ax.set(xlabel='Alignment Score', ylabel='Observations')
     plt.savefig(histogram_filename)
 except Exception as e:
-    print("Couldn't create alignment score histogram, perhaps you need to configure matplotlibrc?")
+    print("Couldn't create alignment score histogram, perhaps you need to configure the matplotlib backend?")
     print(e)
 
 totals = outcomes.sum()
