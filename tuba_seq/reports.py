@@ -1,7 +1,10 @@
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
-from tuba_seq.graphs import plt, text_color_legend
+from tuba_seq.graphs import text_color_legend
 from tuba_seq.tools import LN_mean, inerts
 from scipy import stats 
 
@@ -40,7 +43,7 @@ def identify_outliers_by_target_profile(normalized_tumors, metric=LN_mean, alpha
 
     return outliers
 
-def contamination(tumor_numbers, alpha=0.05):
+def contamination(tumor_numbers, alpha=0.5):
     from statsmodels.formula.api import ols
     
     M = tumor_numbers.unstack(level='Mouse')
@@ -58,9 +61,8 @@ def contamination(tumor_numbers, alpha=0.05):
         N_overlap = Overlap.sum()
         N_both = I_other.sum() + N - N_overlap
         df = pd.DataFrame(dict(N_both=N_both, enrichment=N_overlap/N_both))
-        print(df)
         regression = ols("enrichment ~ N_both", data=df).fit()
-        out = regression.outlier_test()
+        out = regression.outlier_test(method='sidak', alpha=alpha)
         out.index.names = ['is contaminated by']
         out.columns.names = ['Statistic']
         out['p_value'] = out['unadj_p']*m

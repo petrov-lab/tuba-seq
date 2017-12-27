@@ -69,8 +69,6 @@ def infer_master_read(DNAs, max_random_base_frequency=0.667):
     counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
     PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
     master_read = ''.join(PWM.apply(lambda col: col.argmax() if col.max() > max_random_base_frequency else 'N'))
-    print('Assuming Master Read is:')
-    print(master_read.replace('N', '.'))
     return master_read
 
 def load_clusters_annotate_sgRNAs_and_merge(filename, columns_to_keep=list(merge_rules.keys())+['sequence']):
@@ -103,7 +101,8 @@ This function combines the loading, annotation, and merging steps to permit para
     return dict(initial=len(df),
                 clusters=merged, 
                 exact_matches=len(df) - failed_matches.sum(), 
-                merges=len(df) - len(merged))
+                merges=len(df) - len(merged),
+                master_read=master_read)
 
 Files = [f for f in os.listdir(args.directory) if csv_ext in f]
 clustered_mice = map(load_clusters_annotate_sgRNAs_and_merge, [os.path.join(args.directory, f) for f in Files])
@@ -115,8 +114,22 @@ Log("Completed consolidation, sgID annotation & cluster merging.")
 
 combined.to_csv(args.out_file+'.gz', compression='gzip')
 
-######################### Summary Statistics ###################################
+# Check Master Read Inferences
 data = pd.DataFrame(clustered_mice, index=mice_names)
+master_reads = data.pop('master_read').str.replace("N", '.')
+MR_counts = master_reads.value_counts()
+if len(MR_counts) == 1:
+    Log("All master reads matched ({:})".format(MR_counts.values[0]))
+else:
+    from warnings import warn
+    main_read = MR_counts.idxmax()
+    s = "Master reads did not all match! Used {:} {:} times, and observed the following exceptions:\n".format(main_read, MR_counts.max())
+    s += master_reads.loc[master_reads != main_read].to_string()
+    warn(s)
+    Log(s)
+
+
+######################### Summary Statistics ###################################
 tallies = data.sum()
 tallies['unknown_RNA'] = len(combined.loc[(slice(None), 'Unknown'), :]) 
 percents = tallies/tallies.loc['initial']

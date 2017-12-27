@@ -74,7 +74,7 @@ def best_power_law_fit(S, resolution=400, percentile_min=10, percentile_max=99, 
     log_likelihoods = np.array([fit.distribution_compare('power_law', 'lognormal', normalized_ratio=True)[0] for fit in Fits])
     return Fits[log_likelihoods.argmax()], log_likelihoods.max()
 
-def best_parametric_distribution(S, consider=['norm', 'expon', 'logistic', 'gumbel', 'lognorm', 'loglogistic']):
+def best_parametric_distribution(S, consider=['norm', 'expon', 'logistic', 'gumbel', 'extreme1', 'lognorm', 'loglogistic']):
     """Anderson-Darling test to identify the best parametric distribution of the data.
 
     Parameter:
@@ -82,7 +82,8 @@ def best_parametric_distribution(S, consider=['norm', 'expon', 'logistic', 'gumb
     consider : List of distributions to compare. Will return best fit.
     """
     from scipy.stats import anderson
-    fits = {dist:anderson(np.array(np.log(S) if dist[:3] == 'log' else S), dist=dist.replace('log', '')).statistic for dist in consider}
+    log_distributions = {'lognorm', 'loglogistic'}
+    fits = {dist:anderson(np.array(np.log(S) if dist in log_distributions else S), dist=dist[(3 if dist in log_distributions else 0):]).statistic for dist in consider}
     return min(fits, key=fits.get)
 
 class CapturingDict(collections.Counter):
