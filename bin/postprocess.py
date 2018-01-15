@@ -105,17 +105,17 @@ This function combines the loading, annotation, and merging steps to permit para
                 master_read=master_read)
 
 Files = [f for f in os.listdir(args.directory) if csv_ext in f]
-clustered_mice = map(load_clusters_annotate_sgRNAs_and_merge, [os.path.join(args.directory, f) for f in Files])
+clustered_samples = map(load_clusters_annotate_sgRNAs_and_merge, [os.path.join(args.directory, f) for f in Files])
 
-# Consolidate output based on mouse names into a single file
-mice_names = [f.split(csv_ext)[0] for f in Files]
-combined = pd.concat({mouse_name:output.pop('clusters') for mouse_name, output in zip(mice_names, clustered_mice)}, names=['Mouse'])
+# Consolidate output based on sample names into a single file
+sample_names = [f.split(csv_ext)[0] for f in Files]
+combined = pd.concat({sample_name:output.pop('clusters') for sample_name, output in zip(sample_names, clustered_samples)}, names=['Sample'])
 Log("Completed consolidation, sgID annotation & cluster merging.")
 
 combined.to_csv(args.out_file+'.gz', compression='gzip')
 
 # Check Master Read Inferences
-data = pd.DataFrame(clustered_mice, index=mice_names)
+data = pd.DataFrame(clustered_samples, index=sample_names)
 master_reads = data.pop('master_read').str.replace("N", '.')
 MR_counts = master_reads.value_counts()
 if len(MR_counts) == 1:

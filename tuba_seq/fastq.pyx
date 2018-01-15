@@ -138,15 +138,30 @@ class MasterRead(object):
         stop = self.full.rindex('N') + 1
         self.ref = self.full[start - self.alignment_flank:stop+self.alignment_flank]
         
-        self.barcode_length = len(self.ref) - 2*self.alignment_flank
+        aft_length = len(self.full) - stop
         
+        self.trim = min(args.trim, start - self.alignment_flank, aft_length - self.alignment_flank)
+        if self.trim < 0:
+            raise RuntimeError("The master read's flanks are shorter than `alignment_flank`")
+            
+        if args.symmetric_flanks:
+            self.pre_slice = slice(self.trim + start - aft_length, len(self.full) - self.trim) if start > aft_length else slice(self.trim, len(self.full) - self.trim - aft_length + start)
+        else:
+            self.pre_slice = slice(self.trim, len(self.full) - self.trim) 
+       
+        self.barcode_length = stop - start
+        
+        # MAYBE DELETE SOMETIME!
+        assert len(self.ref[self.pre_slice]) >= 2*self.alignment_flank + self.barcode_length
+        assert self.pre_slice.start >= self.trim
+        assert self.pre_slice.stop <= len(self.full) - self.trim
+        if args.symmetric_flanks:
+            assert start - self.pre_slice.start == self.pre_slice.stop - stop 
+        ######
+
         self.c_ref = self.ref.encode('ascii')
         self.max_score = nw.char_score(self.c_ref, self.c_ref)
         self.min_align_score = args.min_align_score
-
-        aft_length = len(self.full) - stop
-        pre_slice = (slice(start-aft_length, stop+aft_length) if start > aft_length  else slice(args.trim, stop+start-args.trim)) if args.symmetric_flanks else slice(0, len(self.full)) 
-        self.pre_slice = slice(pre_slice.start + args.trim, pre_slice.stop - args.trim)
         
     def find_start_stop(self, seq): 
         """score=score of [match, mismatch, gap_start, gap_extend]"""
@@ -162,8 +177,9 @@ class MasterRead(object):
         seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
         return ''.join([s if (s != 'N' or r == '-') else r for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')) if s != '-'])
     
-    def iter_fastq(self, sample, filenames, input_file):
+    def iter_fastq(self, sample, filenames, input_fastq):
         from collections import defaultdict
+        from shared import smart_open
         scores = defaultdict(int)
         cdef:
             int BL = self.barcode_length
@@ -178,10 +194,12 @@ class MasterRead(object):
             int Residual_N = 0
             int Insufficient_Flank = 0
             int Clustered = 0
-
-        LINE_3 = '\n+\n'.encode('ascii')
-        END = '\n'.encode('ascii')
-        with open(filenames[0], 'wb') as training_file, open(filenames[1], 'wb') as cluster_file:
+            
+            bytes LINE_3 = '\n+\n'.encode('ascii')
+            bytes END = '\n'.encode('ascii')
+            bytes ILLUMINA_FAILED_FILTER = ':Y:'.encode('ascii') 
+        
+        with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(input_fastq) as input_file:
             while True:
                 header = input_file.readline()
                 if not header:
@@ -192,7 +210,7 @@ class MasterRead(object):
                 if not QC:
                     raise RuntimeError("Input FASTQ file was not 4x lines long")
                 DNA = c_DNA.decode('ascii')
-                if ':Y:'.encode('ascii') in header:
+                if ILLUMINA_FAILED_FILTER in header:
                     Filtered += 1
                     continue
                 if DNA in self.alignments:
@@ -215,6 +233,10 @@ class MasterRead(object):
                     tQC = QC[start-TF:start]+QC[stop:stop+TF]
                     assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
                     training_file.write(header+training_DNA.encode('ascii')+LINE_3+tQC+END)
+                if len(training_DNA) != 2*TF:
+                    print(2*TF - len(training_DNA))
+                if "N" in training_DNA:
+                    print('N')
                 if 'N' in DNA:
                     DNA = self.repair_N(c_DNA)
                 cluster_DNA = DNA[start - CF:start+BL+CF]

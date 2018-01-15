@@ -57,7 +57,7 @@ barcode_length = clean.iloc[0][['sgRNA', 'barcode']].str.len().sum()
 clean.set_index(['barcode', 'GCs'], append=True, inplace=True)
 untransformed = clean.eval(args.cell_metric)
 Y = untransformed if args.linear else np.log(untransformed)
-residual = Y.groupby(level=['Mouse', 'target']).transform(lambda S: S - S.mean())
+residual = Y.groupby(level=['Sample', 'target']).transform(lambda S: S - S.mean())
 gb = residual.groupby(level='GCs')
 
 data = gb.agg(trimmed_mean)
@@ -125,13 +125,13 @@ else:
 
 true_spikes = clean.query('target == "Spike" and barcode in @spike_barcodes')
 
-scalings = true_spikes['GC_corrected'].groupby(level='Mouse').mean()
+scalings = true_spikes['GC_corrected'].groupby(level='Sample').mean()
 
 def spike_normalization(df):
     return df*args.spike_cells/scalings.loc[df.name]
 
 final = clean.join(pd.DataFrame(
-       {'Cells': clean['GC_corrected'].groupby(level='Mouse').transform(spike_normalization),
+       {'Cells': clean['GC_corrected'].groupby(level='Sample').transform(spike_normalization),
         'Concentration':clean.eval('n0 / (abundance - n1 - n0)')}))
 final.insert(0, 'pass_filter', final.eval(args.final_filter))
 final.insert(0, 'false_positive', final.eval('target == "Spike" and pass_filter and not barcode in @spike_barcodes'))
@@ -144,9 +144,9 @@ FDR = false_positives/(false_positives + len(true_spikes))
 Log("""Estimated FDR: {:.1%} (Based on the number of unexpected spike-in barcodes that passed the final filter.)""".format(FDR, args.final_filter), True)
 
 final.to_csv(args.full_out_file+'.gz', compression='gzip')
-tumor_df = final.query('pass_filter and target != "Spike"').reset_index()[['Mouse', 'target', 'barcode', 'Cells']]
+tumor_df = final.query('pass_filter and target != "Spike"').reset_index()[['Sample', 'target', 'barcode', 'Cells']]
 tumor_df.to_csv(args.simple_out_file+'.gz', index=False, compression='gzip')
-tumors = tumor_df.set_index(["Mouse", 'target', 'barcode'])["Cells"]
+tumors = tumor_df.set_index(["Sample", 'target', 'barcode'])["Cells"]
 
 if args.report:
     from tuba_seq.reports import barcode_diversity, contamination

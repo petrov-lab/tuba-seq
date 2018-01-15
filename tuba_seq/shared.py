@@ -6,7 +6,22 @@ also logged.
 
 """
 from datetime import datetime
-import atexit, warnings, functools
+import atexit, warnings, functools, os
+
+def smart_open(filename, mode='rb', makedirs=False):
+    if makedirs:
+        directory = os.path.dirname(filename)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+    if filename[-5:] == '.gzip' or filename[-3:] == '.gz':
+        from gzip import open
+    elif filename[-4:] == '.bz2':
+        from bz2 import open
+    elif filename[-5:] == '.lzma':
+        from lzma import open
+    else:
+        from builtins import open
+    return open(filename, mode)
 
 class logPrint(object):
     def line_break(self):
