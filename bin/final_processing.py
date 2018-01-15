@@ -159,7 +159,9 @@ if args.report:
         Log("""
 There was an abnormally-high degree of overlapping barcodes between specific 
 samples in this library suggesting cross-contamination of the following samples:
-"""+contaminants.reset_index().to_string(index=False)+"""
+
+"""+contaminants.to_string()+"""
+
 Directionality of contamination is inferred by the `Size Ratio` of overlapping
 barcodes, i.e. the contamination volume should be smaller than its original 
 sample. This may be an unreliable assumption.""", True)
