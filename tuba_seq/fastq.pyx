@@ -125,6 +125,20 @@ def cprint(s): print(s.decode('ascii'))
 c_gap = '-'.encode('ascii') 
 c_N = 'N'.encode('ascii') 
 
+from shared import smart_open
+def iter_fastq(filename):
+    with smart_open(filename) as f:
+        while True:
+            header = f.readline()
+            if not header:
+                break
+            dna = f.readline()
+            f.readline()
+            QC = f.readline()
+            if not QC:
+                raise RuntimeError("Input FASTQ file was not 4x lines long")
+            yield header, dna, QC
+
 class MasterRead(object):
     def __init__(self, master_read, args):
         self.alignment_flank = args.alignment_flank
@@ -151,12 +165,15 @@ class MasterRead(object):
        
         self.barcode_length = stop - start
         
+        if start - self.alignment_flank < self.pre_slice.start:
+            raise ValueError("Insufficient forward flank ({:} nt) on Master Read to accommodate `alignment_flank` ({:} nt) & `trim` ({:} nt).".format(start, self.alignment_flank, self.trim))
+        if stop + self.alignment_flank > self.pre_slice.stop:
+            raise ValueError("Insufficient aft flank ({:} nt) on Master Read to accommodate `alignment_flank` ({:} nt) & `trim` ({:} nt).".format(aft_length, self.alignment_flank, self.trim))
+        
         # MAYBE DELETE SOMETIME!
-        assert len(self.ref[self.pre_slice]) >= 2*self.alignment_flank + self.barcode_length
-        assert self.pre_slice.start >= self.trim
-        assert self.pre_slice.stop <= len(self.full) - self.trim
+        assert len(self.full[self.pre_slice]) >= 2*self.alignment_flank + self.barcode_length 
         if args.symmetric_flanks:
-            assert start - self.pre_slice.start == self.pre_slice.stop - stop 
+            assert start - self.pre_slice.start == self.pre_slice.stop - stop, 'symmetric_flanks failed.' 
         ######
 
         self.c_ref = self.ref.encode('ascii')
@@ -177,9 +194,19 @@ class MasterRead(object):
         seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
         return ''.join([s if (s != 'N' or r == '-') else r for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')) if s != '-'])
     
+    def tally_mutations(self, c_seq, c_QC):
+        """ NOT INTEGRATED YET!"""
+        seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
+        qc_i = 0
+        for s, r in zip(seq_align, ref_align):
+            if s != c_gap:
+                if s != c_N and r != c_N and r != c_gap:
+                    ix = r, s, c_QC[qc_i]
+                    self.tally[ix] = self.tally.get(ix, 0) + 1
+                qc_i += 1
+    
     def iter_fastq(self, sample, filenames, input_fastq):
         from collections import defaultdict
-        from shared import smart_open
         scores = defaultdict(int)
         cdef:
             int BL = self.barcode_length
@@ -233,10 +260,10 @@ class MasterRead(object):
                     tQC = QC[start-TF:start]+QC[stop:stop+TF]
                     assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
                     training_file.write(header+training_DNA.encode('ascii')+LINE_3+tQC+END)
-                if len(training_DNA) != 2*TF:
-                    print(2*TF - len(training_DNA))
-                if "N" in training_DNA:
-                    print('N')
+                #if len(training_DNA) != 2*TF:
+                #    print(2*TF - len(training_DNA))
+                #if "N" in training_DNA:
+                #    print('N')
                 if 'N' in DNA:
                     DNA = self.repair_N(c_DNA)
                 cluster_DNA = DNA[start - CF:start+BL+CF]
@@ -256,25 +283,48 @@ class MasterRead(object):
         return pd.Series([Filtered,   Unaligned,   Wrong_Barcode_Length,   Residual_N,   Insufficient_Flank,   Clustered], 
          index=pd.Index(['Filtered', 'Unaligned', 'Wrong Barcode Length', 'Residual N', 'Insufficient Flank', 'Clustered']))
 
-import re
+import regex as re
 class singleMismatcher(object):
     def __init__(self, substring):
-        self.exact_match = substring
-        self.patterns = [substring[:i]+'.'+substring[i+1:] for i in range(0, len(substring)-1)] + [substring[:-1]]
-        self.re_objects = list(map(re.compile, self.patterns))
+        self.pattern_obj = re.compile(substring+'{s<=1}')
 
     def find(self, searchstring):
-        for re_object in self.re_objects:
-            searched = re_object.search(searchstring)
-            if searched is not None:
-                return searched.start()
-        else:
-            return -1
+        search_obj = self.pattern_obj.search(searchstring)
+        return search_obj.start() if search_obj is not None else -1
 
 def hamming_distance(a, b):
     from scipy.spatial.distance import hamming
     N = len(a)
     return round(N*hamming(np.fromiter(a, 'S1', N), np.fromiter(b, 'S1', N)))
+
+class robustMatcher(object):
+    def __init__(self, match_dict, max_errors=1):
+        self.exact = 0
+        self.recovered = 0
+        self.conflict = 0
+        self.unknown = 0
+        self.match_dict = match_dict
+        self._recover_str = ' '.joinmatch_dict.values()
+        self._ext_str = '{{s<={:}}}'.format(max_errors)
+
+    def match(self, s):
+        if s in self.match_dict:
+            self.exact += 1
+            return self.match_dict[s]
+        recoveries = re.findall(s+self._ext_str, self._recover_str)
+        L = len(recoveries)
+
+        if L == 1:
+            self.recovered += 1
+            return self.match_dict[recoveries[0]]
+        if L == 0:
+            self.unknown += 1
+            return "unknown"
+        self.conflict += 1
+        return "conflict"
+
+    def summary(self):
+        return pd.Series({outcome:getattr(self, outcome) for outcome in ['exact', 'recovered', 'unknown', 'conflict']})
 
 cdef double QC_map_C[256] 
 cdef double [:] QC_map = QC_map_C

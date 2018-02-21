@@ -36,6 +36,20 @@ def Hochberg(P, alpha, m):
             break
     return P <= P_failed
 
+@np.vectorize
+def pstars(p_value, pstar_values=np.array([1e-4, 1e-3, 1e-2, 0.05])):
+    """pstars(p_value) -> str of `*` 
+    
+Statistical significance thresholds exceeded by p_value (can be scalar or vector).
+
+Parameters:
+-----------
+pstar_values (default:APA/NEJM thresholds, i.e. [0.05, 0.01, 0.001, 0.0001]) : list or numpy.array
+    p-value thresholds defining each increasing `*`. 
+"""
+    return (len(pstar_values) - np.searchsorted(pstar_values, p_value))*'*'
+
+
 class sample(object):
     permissible_uncertainty = 0.21
 

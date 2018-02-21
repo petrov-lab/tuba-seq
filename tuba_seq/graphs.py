@@ -9,7 +9,7 @@ def percentile_plot(data, ax, order,
     baseline=True, #percentiles=None, 
     hue_map=None, alpha=0.05, inert_darkness=0.25, sgRNA_spacing=0.1, saturation_of_lightest_percentile=1, palette_constructor=sns.light_palette,
     add_legend=True, legend_text_size='x-small',
-    dot_kwargs=dict(marker='.', linewidths=1, edgecolors='k', s=350, zorder=3),
+    dot_kwargs=dict(marker='.', linewidths=1, edgecolors='k', s=400, zorder=3),
     ebar_kwargs=dict(ecolor='#404040', elinewidth=0.5, ls='none', capsize=400, zorder=2),
     xtick_kwargs=dict(rotation=90, style='italic', size=20, ha='center'),
     baseline_kwargs=dict(color='k', ls='dotted', lw=1)):
@@ -21,9 +21,8 @@ def percentile_plot(data, ax, order,
         df = data.query('target == @target')
         X = i + np.linspace(0, 1-sgRNA_spacing, num=len(df), endpoint=False) 
         Y = df['true']
-        CI = df.loc[['low', 'high']] # extract the Confidence Interval manually. 
-        err = (CI.T - Y.values).abs().values 
         
+        err = np.vstack((df['true'] - df['low'], df['high'] - df['true']) )
         if err.any():
             ax.errorbar(X, Y, yerr=err, **ebar_kwargs)
         
@@ -38,20 +37,22 @@ def percentile_plot(data, ax, order,
     
         #Y-axis specifications
     ax.set_yscale('log', basey=2)
-    from matplotlib.ticker import ScalarFormatter
-    ax.yaxis.set_major_formatter(ScalarFormatter())
+    from matplotlib import ticker
+    ax.yaxis.set_major_formatter(ticker.ScalarFormatter())
+    ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%g"))
+    ax.set_ylabel("Relative Size (sg$TS$/sg$Inerts$)") 
+    
         #X-axis specifications
     ax.xaxis.set_ticks(np.arange(len(order))+(1-sgRNA_spacing)/2)
     ax.xaxis.set_ticklabels(order, **xtick_kwargs)
-    
     if add_legend:
-        X = np.linspace(sgRNA_spacing, 1, num=len(df), endpoint=False)
+        X = np.linspace(sgRNA_spacing, 1, num=len(df)+1)
         y = ax.get_ylim()[1]*0.99   # hack to get top of plot 
         percentiles = df.index.get_level_values('Percentile').values.tolist()
-        ax.scatter(X, len(percentiles)*[y], c=inert_colors, label='Legend', **dot_kwargs)
+        ax.scatter(X[:-1], len(percentiles)*[y], c=inert_colors, label='Legend', **dot_kwargs)
         for x, p in zip(X, percentiles):
-            ax.text(x, y, p[:-1] + '  ', ha='center', va='top', rotation=90, size=legend_text_size)
-        ax.text(X[-1], y,'  '+'Percentile', va='center', ha='left', size=legend_text_size)
+            ax.text(x, y, '{:g}  '.format(p), ha='center', va='top', rotation=90, size=legend_text_size)
+        ax.text(X[-1], y,'Percentile', va='center', ha='left', size=legend_text_size)
     return ax
 
 def poisson_CI(counts, alpha=0.05, min_high_CI=1.0):
@@ -154,7 +155,7 @@ def fancy_percentage_formatter(x, sig_figs=2):
     return '{:g}%'.format(rx*100)
 
 def jitter_plot(S, order, colors=None, ax=plt.gca(),
-                annotate_mean=True, tumor_numbers=True, decade_percentages=False,
+                annotate_mean=True, tumor_numbers=True, decade_percentages=False, ymax=None,
                 jitter=0.4, scale=5e-4, text_size='large', text_lw=3, mean_bar_width=0.9, 
                 xtick_kwargs=dict(rotation=90, style='italic', size=20, ha='center'),
                 mean_bar_kwargs=dict(color='k', lw=3.5, zorder=3)):
@@ -165,6 +166,9 @@ def jitter_plot(S, order, colors=None, ax=plt.gca(),
     
     if colors is None:
         colors = dict(zip(order, sns.color_palette(n_colors=len(order))))
+    
+    if ymax is None:
+        ymax = pow(10, np.ceil(np.log10(S.max()*(1.5 if tumor_numbers else 1))))
 
     gb = S.groupby(level='target')
     
@@ -178,10 +182,9 @@ def jitter_plot(S, order, colors=None, ax=plt.gca(),
         ax.scatter(x, Y, s=Y*scale, color=colors[rna], label=rna, zorder=10)
     
     if tumor_numbers:
-        y = S.max()*1.15
         N = gb.count()[order].values
         for x, n in enumerate(N):
-            ax.text(x, y, '$N=$\n${:,}$'.format(n), ha='center', va='bottom')
+            ax.text(x, ymax, '$N=$\n${:,}$'.format(n), ha='center', va='top')
     if decade_percentages:
         decade_mins = pow(10, np.arange(np.floor(np.log10(S.min())), np.log10(S.max())))
         ax.hlines(decade_mins, *xlim, color='0.25', lw=1, linestyles='dashed')
@@ -198,6 +201,7 @@ def jitter_plot(S, order, colors=None, ax=plt.gca(),
                 text.set_path_effects([path_effects.Stroke(linewidth=text_lw, foreground='black', capstyle='round', joinstyle='round'), path_effects.Normal()])       
     
     ax.set(xlim=xlim, ylabel='Cells (Absolute no.)', yscale='log')
+    ax.set_ylim(ymax=ymax)
     ax.xaxis.set_ticks(X)
     ax.xaxis.set_ticklabels(order, **xtick_kwargs)
     return ax
@@ -271,4 +275,6 @@ def text_color_legend(ax, visible_handles=False, legend_prop={'weight':'semibold
     for handle, text in zip(handles, L.get_texts()):
         text.set_color(handle.get_facecolor() if handle.get_fill() else handle.get_edgecolor())
     return L
+
+
 

@@ -6,7 +6,7 @@ from tuba_seq.fastq import singleMismatcher
 from tuba_seq.shared import logPrint
 
 
-parser = argparse.ArgumentParser(   description="""Combines DADA2 clustering outputs, annotates sgRNAs, corrects for GC-bias, performs post-clustering barcode selection, and transforms abundances to absolute cell number. All input & output data files are in CSV file format.""", 
+parser = argparse.ArgumentParser(   description="""Combines DADA2 clustering output & annotates sgRNAs.""",
                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('sgRNA_file', help='All sgRNAs used and their corresponding identifiers.')

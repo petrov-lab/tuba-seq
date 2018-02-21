@@ -1,52 +1,61 @@
-from numpy cimport ndarray 
 import numpy as np
 import pandas as pd
 import io, sys, collections
+from tuba_seq.functions import LN_Mean_P_values, percentiles, LN_mean, inerts 
 
-inerts = ['Neo1', 'Neo2', 'Neo3', 'NT1', 'NT3']
-percentile_tiers = np.array([50, 60, 70, 80, 90, 95, 99])
+def LN_Mean_Summary(S, inerts=inerts, min_FWER=0.0001, correction='Bonferroni'):
+    """Hypothesis test of increased growth for sgRNAs within the screen, assuming 
+a Lognormal distribution of tumor sizes. 
 
-def LN_mean(data):
-    """MLE of mean of data, presuming a LogNormal Distribution."""
-    cdef:
-        ndarray[dtype=double, ndim=1] x = np.array(data)
-        double L = len(x)
-        ndarray[dtype=double, ndim=1] One = np.ones_like(x)
-        ndarray[dtype=double, ndim=1] LN_x = np.log(x)
-    X = LN_x.dot(One)/L
-    X2 = LN_x.dot(LN_x)/L - X*X
-    return np.exp(X + 0.5*X2)
+This function is similar to tuba_seq.functions.LN_Mean_P_values, however it 
+corrects for multiple-hypothesis testing, and generates a more descriptive table. 
+This function uses the bootstrap sampling technique to estimate a null sampling 
+distribution from the sgInert tumors sizes. 
 
-def xformed_LN_mean(ndarray[dtype=double, ndim=1] LN_x):
-    """deprecated"""
-    cdef:
-        double L = len(LN_x)
-        ndarray[dtype=double, ndim=1] One = np.ones_like(LN_x)
-    X = LN_x.dot(One)/L
-    X2 = LN_x.dot(LN_x)/L - X*X
-    return np.exp(X + 0.5*X2)
+Note: This hypothesis test was not used in Rogers et al. 2017. This test 
+*assumes* that sgInert tumors represent a null sampling distribution and, 
+therefore, cannot test whether any sgInert guide deviates in growth from the 
+other inerts. 
+    
+This test tends to be more conservative in P-value estimates because it attempts
+to account for the typical amount of off-target endonuclease activity insofar as 
+it alters cell fitness. For example, sgNeo2 tumors tend to grow slightly slower 
+than other inerts. By estimating the mean size of sgNeo2 tumors separate from 
+the other inerts (and by generating a sampling distribution from all sgInerts 
+separately), this unintended change in fitness is incorporated into the null 
+sampling distribution, widening the null distribution and, thus, reducing the 
+likelihood that target sgRNAs deviate significantly from the null distribution. 
 
-def LN_mean_P_values(S, inerts=inerts, min_pvalue=0.0001):
-    from bootstrap import sample
-    ix = S.index.get_level_values('target').isin(inerts)
-    Y = S.groupby(level='target').agg(LN_mean)
-    LN_I = np.log(S.loc[ix])
-    def all_targets_LN_mean(ln_S):
-        return ln_S.groupby(level='target').agg(lambda S: xformed_LN_mean(S.values))
-    s = sample(LN_I, all_targets_LN_mean, min_pvalue=min_pvalue)
-    output = pd.Series({target:s.percentileofscore(y).drop(target, errors='ignore').mean() for target, y in Y.iteritems()}, 
-                       name='LN Mean P-value')
-    output.index.names = ['target']
-    return 1 - output*1e-2
+This test (not the Nat Methods test) is recommended. However, if one of the 
+`inerts` within the screen changes tumor growth inordinately, then you will not 
+observe any statistically-significant growth effects. So if you are using a new 
+sgInert, you may want to first excluded it from `inerts` to affirm that it 
+minimally alters tumor growth. 
+    
+Parameters:
+-----------
 
-def percentiles(S, tiers=percentile_tiers):
-    """percentiles of pandas.Series Object
+inerts : sgRNAs that are not expected to alter tumor sizes to be used as the 
+    null sampling distribution (default: ['Neo1-3', 'NT1', 'NT3'])
 
-    Parameter:
-    ----------
-    tiers : the percentiles to calculate (default: [50, 60, 70, 80, 90, 95, 99])
-    """
-    return pd.Series(S.quantile(q=np.array(tiers)*1e-2).values, index=pd.Index(tiers, name='Percentile').astype(str))
+min_FWER : Determines number of bootstrap samples to draw. Family-Wise Error Rate
+    (FWER) estimates below min_FWER are not reliably--more bootstrapping samples 
+    need to be drawn. The default resolution can take hours to run even on a 
+    modern CPU architecture. See bootstrap.sample for details. (default: 0.0001). 
+
+correction : Correction method for FWER (default: 'Bonferroni', other options: 
+    'Sidak', 'Holm', 'Hochberg'. See tuba_seq.bootstrap for details. The # of
+    hypotheses is estimated from the non-inert sgRNAs in the input array.
+"""
+   out = S.groupby(level='target').agg(LN_mean)
+   from 
+   min_pval = #####
+   df = pd.concat({
+        'LN Mean (absolute cell no.)':out, 
+        'LN Mean (Relative to sgInerts)':out.groupby(level='target').transform(inert_normalize)},
+        'One-Sided raw P-value': LN_mean_P_values(S, inert=inerts, min_pvalue=min_pvalue))
+
+
 
 def best_power_law_fit(S, resolution=400, percentile_min=10, percentile_max=99, sigma_threshold=0.05):
     """Returns best-fitting powerlaw.Distribution object of the data.
@@ -113,37 +122,6 @@ def distribution_summarize(S, PL_pval_threshold=0.05, **kargs):
         'LN_Mean':LN_mean(S),
         'log_likelihood_of_truncated_exponential_fit':fit.distribution_compare('power_law', 'truncated_power_law', normalized_ratio=True)[0],
         'Fraction_of_tumors_in_PL':(S > fit.xmin).mean()})
-
-from sklearn.decomposition import PCA
-def PC1_weights(cohort, model=PCA(n_components=1)):
-    A = cohort.unstack("target")
-    model.fit(A)
-    weights = model.score_samples(A)
-    return pd.concat({rna:pd.Series(weights/weights.sum(), index=A.index) for rna in A.columns}, names=['target'])
-
-def PC1_explained_variance(S, pca=PCA()):
-    M = S.unstack("target")
-    pca.fit(M)
-    return pca.explained_variance_ratio_[0]
-
-def inert_normalize(S, estimator='median', inerts=inerts):
-    """Normalize tumor sizes to inert sgRNA tumor sizes.
-
-E.g. nomralized_cells = cells.groupby(level='Mouse').transform(inert_normalize)
-
-Variable:
----------
-S : pd.Series containing Absolute Cell #s and an Index with a level entitled 
-    'target'--to be used to identify tumors arising from inert sgRNAs.
-
-Parameters:
------------
-estimator : Function to determine Central Tendency of inerts (default: 'median')
-
-inerts : List of inert targets (default: ['Neo1', 'Neo2', 'Neo3', 'NT1']).
-"""
-    N = S.loc[S.index.get_level_values('target').isin(inerts)].agg(estimator)
-    return S/N
 
 def load_tumors(filename='tumor_sizes.csv.gz', metadata='sample_metadata.csv', 
                 meta_columns=[], drop=None, merger=None, merge_func='mean'):
