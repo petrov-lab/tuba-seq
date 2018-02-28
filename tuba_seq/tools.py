@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import io, sys, collections
-from tuba_seq.functions import LN_Mean_P_values, percentiles, LN_mean, inerts, inert_normalize 
+from tuba_seq.functions import LN_mean_P_values, percentiles, LN_mean, inerts, inert_normalize 
 
-def LN_Mean_Summary(S, inerts=inerts, min_FWER=0.0001):
+def LN_mean_summary(S, inerts=inerts, min_FWER=0.0001):
     """Hypothesis test of increased growth for sgRNAs within the screen, assuming 
 a Lognormal distribution of tumor sizes. 
 
@@ -53,7 +53,7 @@ correction : Correction method for FWER (default: 'Bonferroni', other options:
     df = pd.DataFrame({
         'LN Mean (absolute cell no.)':out, 
         'LN Mean (Relative to sgInerts)':out.groupby(level='target').transform(inert_normalize),
-        'One-Sided raw P-value': LN_Mean_P_values(S, inert=inerts, min_pvalue=min_pval)})
+        'One-Sided raw P-value': LN_mean_P_values(S, inert=inerts, min_pvalue=min_pval)})
     df['Two-Sided Bonferroni-Corrected P-Value'] = df['One-Sided raw P-value'].apply(lambda p: min(p, 1 - p)/(2*m))
     return df
 
