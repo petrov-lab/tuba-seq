@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 import io, sys, collections
-from tuba_seq.functions import LN_Mean_P_values, percentiles, LN_mean, inerts 
+from tuba_seq.functions import LN_Mean_P_values, percentiles, LN_mean, inerts, inert_normalize 
 
-def LN_Mean_Summary(S, inerts=inerts, min_FWER=0.0001, correction='Bonferroni'):
+def LN_Mean_Summary(S, inerts=inerts, min_FWER=0.0001):
     """Hypothesis test of increased growth for sgRNAs within the screen, assuming 
 a Lognormal distribution of tumor sizes. 
 
@@ -36,7 +36,7 @@ Parameters:
 -----------
 
 inerts : sgRNAs that are not expected to alter tumor sizes to be used as the 
-    null sampling distribution (default: ['Neo1-3', 'NT1', 'NT3'])
+    null sampling distribution (default: ['Neo1', 'Neo2', 'Neo3', 'NT1', 'NT3'])
 
 min_FWER : Determines number of bootstrap samples to draw. Family-Wise Error Rate
     (FWER) estimates below min_FWER are not reliably--more bootstrapping samples 
@@ -47,15 +47,15 @@ correction : Correction method for FWER (default: 'Bonferroni', other options:
     'Sidak', 'Holm', 'Hochberg'. See tuba_seq.bootstrap for details. The # of
     hypotheses is estimated from the non-inert sgRNAs in the input array.
 """
-   out = S.groupby(level='target').agg(LN_mean)
-   from 
-   min_pval = #####
-   df = pd.concat({
+    out = S.groupby(level='target').agg(LN_mean)
+    m = (~out.index.isin(inerts)).sum()
+    min_pval = min_FWER/m
+    df = pd.DataFrame({
         'LN Mean (absolute cell no.)':out, 
-        'LN Mean (Relative to sgInerts)':out.groupby(level='target').transform(inert_normalize)},
-        'One-Sided raw P-value': LN_mean_P_values(S, inert=inerts, min_pvalue=min_pvalue))
-
-
+        'LN Mean (Relative to sgInerts)':out.groupby(level='target').transform(inert_normalize),
+        'One-Sided raw P-value': LN_Mean_P_values(S, inert=inerts, min_pvalue=min_pval)})
+    df['Two-Sided Bonferroni-Corrected P-Value'] = df['One-Sided raw P-value'].apply(lambda p: min(p, 1 - p)/(2*m))
+    return df
 
 def best_power_law_fit(S, resolution=400, percentile_min=10, percentile_max=99, sigma_threshold=0.05):
     """Returns best-fitting powerlaw.Distribution object of the data.
