@@ -195,14 +195,14 @@ class MasterRead(object):
         return ''.join([s if (s != 'N' or r == '-') else r for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')) if s != '-'])
     
     def tally_mutations(self, c_seq, c_QC):
-        """ NOT INTEGRATED YET!"""
+        """Keep track of all the deviations from the reference and their QC score."""
         seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
         qc_i = 0
         for s, r in zip(seq_align, ref_align):
             if s != c_gap:
                 if s != c_N and r != c_N and r != c_gap:
-                    ix = r, s, c_QC[qc_i]
-                    self.tally[ix] = self.tally.get(ix, 0) + 1
+                    ix = r.decode('ascii')+'2'+s.decode('ascii'), c_QC[qc_i].decode('ascii')
+                    self.PHRED_tally[ix] = self.PHRED_tally.get(ix, 0) + 1
                 qc_i += 1
     
     def iter_fastq(self, sample, filenames, input_fastq):
@@ -216,7 +216,7 @@ class MasterRead(object):
             double score
         
             int Filtered = 0
-            int Unaligned = 0 
+            int Unaligned = 0
             int Wrong_Barcode_Length = 0
             int Residual_N = 0
             int Insufficient_Flank = 0
@@ -258,6 +258,7 @@ class MasterRead(object):
                 training_DNA = DNA[start - TF:start]+DNA[stop:stop + TF]
                 if 'N' not in training_DNA and len(training_DNA) == 2*TF:
                     tQC = QC[start-TF:start]+QC[stop:stop+TF]
+                    self.tally_mutations(training_DNA, tQC)                                     # To get my own tally
                     assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
                     training_file.write(header+training_DNA.encode('ascii')+LINE_3+tQC+END)
                 #if len(training_DNA) != 2*TF:

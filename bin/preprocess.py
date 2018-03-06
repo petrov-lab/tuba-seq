@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser(description="Prepare FASTQ files for DADA train
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('input_dir', type=str, help='Input directory with fastq files.') 
+parser.add_argument('--single', action='store_true', help='Analyze single FASTQ file; The positional argument should be a *file*, not a directory.'
 parser.add_argument('--master_read', type=str, default=default_master_read, 
     help="Outline of the amplicon sequence, degenerate bases can be either 'N' or '.'. --trim and --symmetric_flanks depend on this being the full length FASTQ sequence that you expect after merging reads.")
 parser.add_argument('-t', '--training_dir', default='training/', help='Directory to save files for error training.') 
@@ -55,16 +56,18 @@ compression = '' if args.derep or args.compression == 'none' else '.'+args.compr
 if args.parallel:
     from tuba_seq.pmap import pmap as map
 
-input_fastqs = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if fastq_ext in f]
+input_fastqs = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if fastq_ext in f] if not args.single else [args.input_dir]
 
 Log = logPrint(args)
-Log('Processing {:} samples found in {:}.'.format(len(input_fastqs), args.input_dir), print_line=True)
+if not args.single:
+    Log('Processing {:} samples found in {:}.'.format(len(input_fastqs), args.input_dir), print_line=True)
 
 manager = Manager()
 master_read.scores = manager.dict()
 master_read.unaligned = manager.dict()
 master_read.alignments = manager.dict()
 master_read.instruments = manager.dict()
+master_read.PHRED_tally = manager.dict()
 
 def process_fastq(input_fastq):
     sample = os.path.basename(input_fastq.partition(fastq_ext)[0])
@@ -87,6 +90,11 @@ outcomes = pd.DataFrame(dict(map(process_fastq, input_fastqs))).T
 scores = pd.DataFrame(dict(master_read.scores)).sum(axis=1) 
 unaligned = pd.Series(dict(master_read.unaligned))
 total_reads = outcomes.sum().sum()
+
+PHRED_tally = pd.Series(dict(master_read.PHRED_tally))
+PHRED_tally.index.names = ['mutation', 'PHRED']
+PHRED_tally.unstack('PRED')
+PHRED_tally.to_csv('training_tallies.csv')
 
 PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
 non_PhiX = unaligned.loc[~PhiX]

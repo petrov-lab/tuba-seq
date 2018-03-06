@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser(description="Run PEAR (Illumina Paired-End reAd
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("forward_read_dir", help="Directory containing forward read files.")
 parser.add_argument("reverse_read_dir", help="Directory containing reverse read files (will be mated by sample name).")
+parser.add_argument('-s', '--single', help='Use in single-FASTQ mode. First two arguments refer to a single file')
 parser.add_argument("-m", '--merge_dir', default='merged_reads', help="Directory to saved merged fastq files")
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
@@ -20,6 +21,7 @@ parser.add_argument('-u', '--uncompressed', action='store_true', help='Avoid PHR
 parser.add_argument('-k', '--keep', action='store_true', help='Keep unassembled read files.')
 parser.add_argument('-n', '--min_length', type=int, help="Minimum length for a merged sequence.", 
     default=(22*2)+29) #Default = minimum length necessary for successful preprocessing, under default conditions.  
+parser.add_argument('--memory', type=str, default='16G', help='Memory to use. K,M,G are possible suffixes.')
 
 # When merging paired-end reads, a combined PHRED score must be assigned to each
 # nucleotide. From the trained error model, we can adjudicate whether the combined 
@@ -47,42 +49,48 @@ fastq_ext = '.fastq'
 args = parser.parse_args()
 Log = logPrint(args)
 
-os.makedirs(args.merge_dir, exist_ok=True)
+if not args.single:
+    os.makedirs(args.merge_dir, exist_ok=True)
+    forward_files = {f for f in os.listdir(args.forward_read_dir) if fastq_ext in f}
+    reverse_files = {f for f in os.listdir(args.reverse_read_dir) if fastq_ext in f}
 
-forward_files = {f for f in os.listdir(args.forward_read_dir) if fastq_ext in f}
-reverse_files = {f for f in os.listdir(args.reverse_read_dir) if fastq_ext in f}
+    matches = forward_files & reverse_files
+    Log("Found {:} matching files.".format(len(matches)))
 
-matches = forward_files & reverse_files
-Log("Found {:} matching files.".format(len(matches)))
+    forward_only = forward_files - reverse_files
+    reverse_only = reverse_files - forward_files
 
-forward_only = forward_files - reverse_files
-reverse_only = reverse_files - forward_files
-
-if len(forward_only) + len(reverse_only) == 0:
-    Log("Matched all fastq files")
+    if len(forward_only) + len(reverse_only) == 0:
+        Log("Matched all fastq files")
+    else:
+        if len(forward_only) > 0:
+            Log("Could not find a reverse fastq file for:")
+            for f in forward_only:
+                Log(forward_only)
+        if len(reverse_only) > 0:
+            Log("Could not find a forward fastq file for:")
+            for f in reverse_only:
+                Log(forward_only)
 else:
-    if len(forward_only) > 0:
-        Log("Could not find a reverse fastq file for:")
-        for f in forward_only:
-            Log(forward_only)
-    if len(reverse_only) > 0:
-        Log("Could not find a forward fastq file for:")
-        for f in reverse_only:
-            Log(forward_only)
+    args.forward_read_dir, File = os.path.split(args.forward_read_dir)
+    args.reverse_read_dir, reverse_file = os.path.split(args.reverse_read_dir)
+    assert reverse_file == File, 'Forward & Reverse files must have the same basename.'
+    matches = [File]
 
 stats = {'Assembled reads', 'Discarded reads', 'Not assembled reads'}
 tallies = dict()
 
 suffixes = {'assembled', 'discarded', 'unassembled.forward', 'unassembled.reverse'}
 for File in matches:
-    sample = File.split('.fastq')[0]
+    sample = File.split(fastq_ext)[0]
     output_file = os.path.join(args.merge_dir, sample)
     options = { '-f':os.path.join(args.forward_read_dir, File),
                 '-r':os.path.join(args.reverse_read_dir, File),
                 '-o':output_file,
                 '-n':args.min_length,
                 '-j':CPUs if args.parallel else 1,  # No. of threads to use
-                '-c':max_PHRED}                             
+                '-c':max_PHRED,
+                '-y':args.memory}                             
     
     command = [args.cmd]+[str(s) for item in options.items() for s in item]
     Log('Analyzing {:} with command:\n{:}'.format(sample, ' '.join(command)))
