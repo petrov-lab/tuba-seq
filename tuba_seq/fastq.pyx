@@ -177,6 +177,7 @@ class MasterRead(object):
         ######
 
         self.c_ref = self.ref.encode('ascii')
+        self.c_train = self.c_ref[:self.training_flank] + self.c_ref[-self.training_flank:]
         self.max_score = nw.char_score(self.c_ref, self.c_ref)
         self.min_align_score = args.min_align_score
         
@@ -196,12 +197,14 @@ class MasterRead(object):
     
     def tally_mutations(self, c_seq, c_QC):
         """Keep track of all the deviations from the reference and their QC score."""
-        seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
+        assert len(c_seq) == len(c_QC)
+        seq_align, ref_align, _score = nw.char_align(c_seq, self.c_train)
         qc_i = 0
-        for s, r in zip(seq_align, ref_align):
-            if s != c_gap:
-                if s != c_N and r != c_N and r != c_gap:
-                    ix = r.decode('ascii')+'2'+s.decode('ascii'), c_QC[qc_i].decode('ascii')
+        for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')):
+            if s != '-':
+                if s != 'N' and r != 'N' and r != '-':
+                    mut = r+'2'+s
+                    ix = mut, c_QC[qc_i] - 32
                     self.PHRED_tally[ix] = self.PHRED_tally.get(ix, 0) + 1
                 qc_i += 1
     
@@ -234,6 +237,7 @@ class MasterRead(object):
                 c_DNA = input_file.readline()[self.pre_slice]
                 input_file.readline()
                 QC = input_file.readline()[self.pre_slice]
+                assert len(c_DNA) == len(QC)
                 if not QC:
                     raise RuntimeError("Input FASTQ file was not 4x lines long")
                 DNA = c_DNA.decode('ascii')
@@ -255,11 +259,13 @@ class MasterRead(object):
                 if abs((stop - start) - BL) > self.allowable_deviation:
                     Wrong_Barcode_Length += 1
                     continue
-                training_DNA = DNA[start - TF:start]+DNA[stop:stop + TF]
+                T_s1 = slice(start - TF, start)
+                T_s2 = slice(stop, stop+TF)
+                training_DNA = DNA[T_s1]+DNA[T_s2]
                 if 'N' not in training_DNA and len(training_DNA) == 2*TF:
-                    tQC = QC[start-TF:start]+QC[stop:stop+TF]
-                    self.tally_mutations(training_DNA, tQC)                                     # To get my own tally
+                    tQC = QC[T_s1]+QC[T_s2]
                     assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
+                    self.tally_mutations(training_DNA.encode('ascii'), tQC)                                     # To get my own tally
                     training_file.write(header+training_DNA.encode('ascii')+LINE_3+tQC+END)
                 #if len(training_DNA) != 2*TF:
                 #    print(2*TF - len(training_DNA))

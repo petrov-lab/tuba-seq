@@ -23,11 +23,14 @@ parser = argparse.ArgumentParser(description="Prepare FASTQ files for DADA train
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('input_dir', type=str, help='Input directory with fastq files.') 
-parser.add_argument('--single', action='store_true', help='Analyze single FASTQ file; The positional argument should be a *file*, not a directory.'
+parser.add_argument('--single', action='store_true', help='Analyze single FASTQ file; The positional argument should be a *file*, not a directory.')
 parser.add_argument('--master_read', type=str, default=default_master_read, 
     help="Outline of the amplicon sequence, degenerate bases can be either 'N' or '.'. --trim and --symmetric_flanks depend on this being the full length FASTQ sequence that you expect after merging reads.")
-parser.add_argument('-t', '--training_dir', default='training/', help='Directory to save files for error training.') 
-parser.add_argument('-o', '--output_dir', default='preprocessed/', help='Directory to save files for barcode clustering.') 
+parser.add_argument('-t', '--training_dir', default='training', help='Directory to save files for error training.') 
+parser.add_argument('-o', '--output_dir', default='preprocessed', help='Directory to save files for barcode clustering.') 
+parser.add_argument('--tally_filename', default='mutation_tallies.csv', help='CSV file of mutation tallies.')
+
+#### NEED TO BE *PER SAMPLE*!
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
 parser.add_argument('-s', '--search_blast', action='store_true', help='Use NCBI BLAST algorithm to identify contaminations in samples')
@@ -93,8 +96,7 @@ total_reads = outcomes.sum().sum()
 
 PHRED_tally = pd.Series(dict(master_read.PHRED_tally))
 PHRED_tally.index.names = ['mutation', 'PHRED']
-PHRED_tally.unstack('PRED')
-PHRED_tally.to_csv('training_tallies.csv')
+PHRED_tally.unstack('PHRED').fillna(0).astype(int).to_csv(args.tally_filename)
 
 PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
 non_PhiX = unaligned.loc[~PhiX]

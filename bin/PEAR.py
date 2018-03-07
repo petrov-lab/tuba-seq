@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description="Run PEAR (Illumina Paired-End reAd
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("forward_read_dir", help="Directory containing forward read files.")
 parser.add_argument("reverse_read_dir", help="Directory containing reverse read files (will be mated by sample name).")
-parser.add_argument('-s', '--single', help='Use in single-FASTQ mode. First two arguments refer to a single file')
+parser.add_argument('-s', '--single', action='store_true', help='Use in single-FASTQ mode. First two arguments refer to a single file')
 parser.add_argument("-m", '--merge_dir', default='merged_reads', help="Directory to saved merged fastq files")
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
@@ -49,8 +49,8 @@ fastq_ext = '.fastq'
 args = parser.parse_args()
 Log = logPrint(args)
 
+os.makedirs(args.merge_dir, exist_ok=True)
 if not args.single:
-    os.makedirs(args.merge_dir, exist_ok=True)
     forward_files = {f for f in os.listdir(args.forward_read_dir) if fastq_ext in f}
     reverse_files = {f for f in os.listdir(args.reverse_read_dir) if fastq_ext in f}
 
@@ -80,7 +80,8 @@ else:
 stats = {'Assembled reads', 'Discarded reads', 'Not assembled reads'}
 tallies = dict()
 
-suffixes = {'assembled', 'discarded', 'unassembled.forward', 'unassembled.reverse'}
+suffixes = {'discarded', 'unassembled.forward', 'unassembled.reverse'} | (set() if args.uncompressed else {'assembled'})
+
 for File in matches:
     sample = File.split(fastq_ext)[0]
     output_file = os.path.join(args.merge_dir, sample)
@@ -95,15 +96,15 @@ for File in matches:
     command = [args.cmd]+[str(s) for item in options.items() for s in item]
     Log('Analyzing {:} with command:\n{:}'.format(sample, ' '.join(command)))
     output = Popen(command, stdout=PIPE, stderr=PIPE).communicate()[0].decode('ascii')
-    
     tallies[sample] = pd.Series({stat:int(line.partition(':')[2].partition('/')[0].replace(',', '')) 
                         for line in output.splitlines() for stat in stats if stat+' ...' in line}, name='Totals')
     
     if args.uncompressed:
-        continue
-    reads = fastqDF.from_file(output_file+".assembled.fastq", fake_header=False, use_Illumina_filter=False)
-    reads['QC'] = reads['QC'].str.translate(PHRED_compressor)
-    reads.write(output_file)
+        os.rename(output_file+'.assembled.fastq', output_file+'.fastq')
+    else:
+        reads = fastqDF.from_file(output_file+".assembled.fastq", fake_header=False, use_Illumina_filter=False)
+        reads['QC'] = reads['QC'].str.translate(PHRED_compressor)
+        reads.write(output_file)
     if not args.keep:
         for suffix in suffixes:
             os.remove('{:}.{:}.fastq'.format(output_file, suffix))
