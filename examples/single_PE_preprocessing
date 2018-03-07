@@ -9,7 +9,7 @@ FORWARD_READS="forward_reads"
 REVERSE_READS="reverse_reads"
 MEMORY="4G"
 
-FILE="IW3098.fastq"
+FILE="IW3098.fastq.gz"
 TALLY_DIR="mutation_tallies"
 
 cd $DATA_DIR;
@@ -18,8 +18,8 @@ cd $DATA_DIR;
     SAMPLE=${FILE%.fastq*}
     echo "Processing $FILE"
     $TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
-    gzip -f $MERGE_DIR/$FILE;
-    mkdir $TALLY_DIR;
+    gzip -f $MERGE_DIR/$SAMPLE.fastq;
+    mkdir -p $TALLY_DIR;
     $TUBA_PATH/preprocess.py --single -s --symmetric_flanks --trim=10 --tally_filename=$TALLY_DIR/$SAMPLE.csv -d $MERGE_DIR/$SAMPLE.fastq.gz; # no -p
 #done
 
