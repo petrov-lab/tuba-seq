@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ex 
 
+FILE=$1
+
 TUBA_PATH="$HOME/tuba-seq/bin"      # PATH to tuba-seq executables
 DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
 MERGE_DIR='merged_reads'            # Directory name for merged forward/reverse reads.
@@ -9,19 +11,15 @@ FORWARD_READS="forward_reads"
 REVERSE_READS="reverse_reads"
 MEMORY="4G"
 
-FILE="IW3098.fastq.gz"
 TALLY_DIR="mutation_tallies"
 
 cd $DATA_DIR;
-#for f in $FORWARD_READS/*.fastq*; do
-    #FILE=$(basename "$f")
-    SAMPLE=${FILE%.fastq*}
-    echo "Processing $FILE"
-    $TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
-    gzip -f $MERGE_DIR/$SAMPLE.fastq;
-    mkdir -p $TALLY_DIR;
-    $TUBA_PATH/preprocess.py --single -s --symmetric_flanks --trim=10 --tally_filename=$TALLY_DIR/$SAMPLE.csv -d $MERGE_DIR/$SAMPLE.fastq.gz; # no -p
-#done
+SAMPLE=${FILE%.fastq*}
+echo "Processing $FILE"
+$TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
+gzip -f $MERGE_DIR/$SAMPLE.fastq;
+mkdir -p $TALLY_DIR;
+$TUBA_PATH/preprocess.py --single -s --symmetric_flanks --trim=10 --tally_filename=$TALLY_DIR/$SAMPLE.csv -d $MERGE_DIR/$SAMPLE.fastq.gz; # no -p
 
 set +x
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";
