@@ -122,8 +122,9 @@ nw.add_neutral_N()
 
 def cprint(s): print(s.decode('ascii'))
 
-c_gap = '-'.encode('ascii') 
-c_N = 'N'.encode('ascii') 
+cdef bytes c_gap = '-'.encode('ascii') 
+cdef bytes c_N = 'N'.encode('ascii') 
+cdef bytes c_2 = '2'.encode("ascii")
 
 from shared import smart_open
 def iter_fastq(filename):
@@ -193,18 +194,17 @@ class MasterRead(object):
 
     def repair_N(self, c_seq):
         seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
-        return ''.join([s if (s != 'N' or r == '-') else r for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')) if s != '-'])
+        return ''.encode('ascii').join([s if (s != c_N or r == c_gap) else r for s, r in zip(seq_align, ref_align) if s != c_gap])
     
-    def tally_mutations(self, c_seq, c_QC):
+    def tally_mutations(self, seq, QC):
         """Keep track of all the deviations from the reference and their QC score."""
-        assert len(c_seq) == len(c_QC)
-        seq_align, ref_align, _score = nw.char_align(c_seq, self.c_train)
+        #assert len(seq) == len(QC)
+        seq_align, ref_align, _score = nw.char_align(seq, self.c_train)
         qc_i = 0
         for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')):
             if s != '-':
                 if s != 'N' and r != 'N' and r != '-':
-                    mut = r+'2'+s
-                    ix = mut, c_QC[qc_i] - 32
+                    ix = r+'2'+s, QC[qc_i] - 32
                     self.PHRED_tally[ix] = self.PHRED_tally.get(ix, 0) + 1
                 qc_i += 1
     
@@ -228,33 +228,33 @@ class MasterRead(object):
             bytes LINE_3 = '\n+\n'.encode('ascii')
             bytes END = '\n'.encode('ascii')
             bytes ILLUMINA_FAILED_FILTER = ':Y:'.encode('ascii') 
-        
+              
         with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(input_fastq) as input_file:
             while True:
                 header = input_file.readline()
                 if not header:
                     break
-                c_DNA = input_file.readline()[self.pre_slice]
+                DNA = input_file.readline()[self.pre_slice]
                 input_file.readline()
                 QC = input_file.readline()[self.pre_slice]
-                assert len(c_DNA) == len(QC)
                 if not QC:
                     raise RuntimeError("Input FASTQ file was not 4x lines long")
-                DNA = c_DNA.decode('ascii')
                 if ILLUMINA_FAILED_FILTER in header:
                     Filtered += 1
                     continue
                 if DNA in self.alignments:
                     start, stop, score = self.alignments[DNA]
                 else:
-                    start, stop = self.find_start_stop(c_DNA)
-                    c_DNA_scoring = c_DNA[start - self.alignment_flank:stop + self.alignment_flank]
-                    score = nw.char_score(c_DNA_scoring, self.c_ref)/self.max_score
-                    self.alignments[DNA] = start, stop, score
+                    start, stop = self.find_start_stop(DNA)
+                    DNA_scoring = DNA[start - self.alignment_flank:stop + self.alignment_flank]
+                    score = nw.char_score(DNA_scoring, self.c_ref)/self.max_score
+                    if len(self.alignments) < self.max_alignments:
+                        self.alignments[DNA] = start, stop, score
                 scores[score] += 1
                 if score < self.min_align_score:
                     Unaligned += 1
-                    self.unaligned[DNA] = 1 + self.unaligned.get(DNA, 0)
+                    if hasattr(self, 'unaligned'):
+                        self.unaligned[DNA] = 1 + self.unaligned.get(DNA, 0)
                     continue
                 if abs((stop - start) - BL) > self.allowable_deviation:
                     Wrong_Barcode_Length += 1
@@ -262,19 +262,19 @@ class MasterRead(object):
                 T_s1 = slice(start - TF, start)
                 T_s2 = slice(stop, stop+TF)
                 training_DNA = DNA[T_s1]+DNA[T_s2]
-                if 'N' not in training_DNA and len(training_DNA) == 2*TF:
+                if c_N not in training_DNA and len(training_DNA) == 2*TF:
                     tQC = QC[T_s1]+QC[T_s2]
-                    assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
-                    self.tally_mutations(training_DNA.encode('ascii'), tQC)                                     # To get my own tally
-                    training_file.write(header+training_DNA.encode('ascii')+LINE_3+tQC+END)
+                    #assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
+                    self.tally_mutations(training_DNA, tQC)                                     # To get my own tally
+                    training_file.write(header+training_DNA+LINE_3+tQC+END)
                 #if len(training_DNA) != 2*TF:
                 #    print(2*TF - len(training_DNA))
                 #if "N" in training_DNA:
                 #    print('N')
-                if 'N' in DNA:
-                    DNA = self.repair_N(c_DNA)
+                if c_N in DNA:
+                    DNA = self.repair_N(DNA)
                 cluster_DNA = DNA[start - CF:start+BL+CF]
-                if 'N' in cluster_DNA:
+                if c_N in cluster_DNA:
                     Residual_N += 1
                     continue
                 if len(cluster_DNA) != (BL+ 2*CF):
@@ -283,7 +283,7 @@ class MasterRead(object):
                     Clustered += 1
                     cQC = QC[start-CF:start+BL+CF]
                     assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
-                    cluster_file.write(header+cluster_DNA.encode('ascii')+LINE_3+cQC+END)
+                    cluster_file.write(header+cluster_DNA+LINE_3+cQC+END)
 
         self.instruments[sample] = header.decode('ascii').split(':')[0]
         self.scores[sample] = pd.Series(scores)
@@ -337,7 +337,7 @@ cdef double QC_map_C[256]
 cdef double [:] QC_map = QC_map_C
 cdef double dp = 0.7943282347
 QC_map[33] = 1.0
-for i in range(34, 76):
+for i in range(34, 128):
     QC_map[i] = dp*QC_map[i - 1]
 
 def _expected_errors(QC):

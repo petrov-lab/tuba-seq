@@ -46,6 +46,7 @@ parser.add_argument('-M', '--min_align_score', type=float, default=0.6, help='Mi
 parser.add_argument('--compression', default='bz2', choices=['bz2', 'gz', 'lzma', 'none'], help='Compression algorithm for saved file.')
 parser.add_argument('--symmetric_flanks', action='store_true', help='Automatically symmetrizes the length of the forward and aft flanks to the barcode--saves memory/time.')
 parser.add_argument('--trim', type=int, default=5, help='Trim reads by specified length on both flanks--works with --symmetric_flanks.')
+parser.add_argument('--max_GB', type=int, default=32, help='Maximum quantity of memory to use for alignment memoization (in Gigabytes).') 
 ###############################################################################
 args = parser.parse_args()
 
@@ -67,8 +68,13 @@ if not args.single:
 
 manager = Manager()
 master_read.scores = manager.dict()
-master_read.unaligned = manager.dict()
+if args.search_blast:
+    master_read.unaligned = manager.dict()
 master_read.alignments = manager.dict()
+
+BYTES_PER_ENTRY = 100
+GIGABYTE = pow(2, 30)
+master_read.max_alignments = args.max_GB/BYTES_PER_ENTRY*GIGABYTE
 master_read.instruments = manager.dict()
 master_read.PHRED_tally = manager.dict()
 
@@ -91,28 +97,33 @@ def process_fastq(input_fastq):
 outcomes = pd.DataFrame(dict(map(process_fastq, input_fastqs))).T
 
 scores = pd.DataFrame(dict(master_read.scores)).sum(axis=1) 
-unaligned = pd.Series(dict(master_read.unaligned))
 total_reads = outcomes.sum().sum()
+
+if len(master_read.alignments) == master_read.max_alignments:
+    Log('Memoization of read alignments maxed-out; increase `max_GB` for better performance.', True)
 
 PHRED_tally = pd.Series(dict(master_read.PHRED_tally))
 PHRED_tally.index.names = ['mutation', 'PHRED']
 PHRED_tally.unstack('PHRED').fillna(0).astype(int).to_csv(args.tally_filename)
 
-PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
-non_PhiX = unaligned.loc[~PhiX]
-unknown_DNAs = (non_PhiX/total_reads).loc[lambda x: x >= args.fraction]
+if args.search_blast:
+    unaligned = pd.Series(dict(master_read.unaligned))
+    unaligned.index = unaligned.index.astype(str)
+    PhiX = pandas2ri.ri2py(dada2.isPhiX(pandas2ri.py2ri(unaligned.index))) == 1
+    non_PhiX = unaligned.loc[~PhiX]
+    unknown_DNAs = (non_PhiX/total_reads).loc[lambda x: x >= args.fraction]
 
-if args.search_blast and len(unknown_DNAs) > 0: 
-    from tuba_seq.blast import sleuth_DNAs
-    DNAs = unknown_DNAs.index.values
-    Log("BLAST-searching {:} common unknown sequence(s)...".format(len(DNAs)), True)
-    searches = sleuth_DNAs(DNAs, local_blast=args.local_blast)
-    if len(searches) == 0:
-        Log("Could not find any acceptable matches.", True)
-    else:
-        Log("                -- Best Match --                          | E-score | % of Reads", True)
-        for dna, row in searches.iterrows():
-            Log("{short_title:<60} {e:1.0e}    {:.2%}".format(unknown_DNAs[dna], **row),True)
+    if len(unknown_DNAs) > 0: 
+        from tuba_seq.blast import sleuth_DNAs
+        DNAs = unknown_DNAs.index.values
+        Log("BLAST-searching {:} common unknown sequence(s)...".format(len(DNAs)), True)
+        searches = sleuth_DNAs(DNAs, local_blast=args.local_blast)
+        if len(searches) == 0:
+            Log("Could not find any acceptable matches.", True)
+        else:
+            Log("                -- Best Match --                          | E-score | % of Reads", True)
+            for dna, row in searches.iterrows():
+                Log("{short_title:<60} {e:1.0e}    {:.2%}".format(unknown_DNAs[dna], **row),True)
 
 instruments = pd.Series(dict(master_read.instruments))
 if len(instruments.value_counts()) > 1:
@@ -131,8 +142,8 @@ except Exception as e:
     print(e)
 
 totals = outcomes.sum()
-totals['PhiX'] = unaligned.loc[PhiX].sum()
-totals['Unaligned'] = non_PhiX.sum() 
+if args.search_blast:
+    totals['PhiX (subset of Unaligned)'] = unaligned.loc[PhiX].sum()
 
 Log("Summary of the {:.2f}M processed reads in {:}:".format(total_reads*1e-6, args.input_dir), True, header=True)
 Log((totals/total_reads).to_string(float_format='{:.2%}'.format), True)

@@ -70,10 +70,19 @@ if (length(args) == 1) {
     }
     derep.file <- file.path(in.directory, derep.base);
 }
-
 derep <- readRDS(derep.file)
-error.model.dadas <- readRDS(training.filename)
-error <- error.model.dadas[[1]]$err_out 
+
+# Load Error Model
+if (grepl(".rds", training.filename)) {
+  error.model.dadas <- readRDS(training.filename)
+  error <- error.model.dadas[[1]]$err_out 
+} else if (grepl('.csv', training.filename)) {
+  trans <- read.csv(file=training.filename, header=TRUE)
+  error <- loessErrfun(trans)
+} else {
+  stop("training.filename must be a csv or rds file.")
+}
+
 
 sample.name <- basename(strsplit(derep.file, ".rds")[[1]][[1]])
 
