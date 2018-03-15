@@ -121,6 +121,11 @@ samples = [os.path.basename(input_fastq.partition(fastq_ext)[0]) for input_fastq
 fastq_outputs = [[os.path.join(Dir, sample+fastq_ext+compression) for Dir in [args.training_dir, args.output_dir]] for sample in samples]
 fasta_outputs = [os.path.join(args.unaligned_dir, sample+'.fasta'+compression) for sample in samples]
 outputs = list(filter(lambda output: output is not None, map(process_fastq, range(len(samples)))))
+
+if not outputs:
+    Log("No files were processed.")
+    sys.exit()
+
 outcome_totals, score_totals = [sum(output_set) for output_set in zip(*outputs)]
 
 total_reads = outcome_totals.sum()
