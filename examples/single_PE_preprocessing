@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex 
 
-FILE=$1
+FILE="IW3098.fastq.gz"       #$1
 
 TUBA_PATH="$HOME/tuba-seq/bin"      # PATH to tuba-seq executables
 DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
@@ -16,10 +16,8 @@ TALLY_DIR="mutation_tallies"
 cd $DATA_DIR;
 SAMPLE=${FILE%.fastq*}
 echo "Processing $FILE"
-$TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
-gzip -f $MERGE_DIR/$SAMPLE.fastq;
-mkdir -p $TALLY_DIR;
-$TUBA_PATH/preprocess.py --single -s --symmetric_flanks --trim=10 --tally_filename=$TALLY_DIR/$SAMPLE.csv -d $MERGE_DIR/$SAMPLE.fastq.gz; # no -p
+#$TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
+$TUBA_PATH/preprocess.py --search_blast -f=0.05 --single --symmetric_flanks -d $MERGE_DIR/$SAMPLE.fastq;
 
 set +x
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";

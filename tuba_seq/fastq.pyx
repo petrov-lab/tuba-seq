@@ -122,9 +122,6 @@ nw.add_neutral_N()
 
 def cprint(s): print(s.decode('ascii'))
 
-cdef bytes c_gap = '-'.encode('ascii') 
-cdef bytes c_N = 'N'.encode('ascii') 
-cdef bytes c_2 = '2'.encode("ascii")
 
 from shared import smart_open
 def iter_fastq(filename):
@@ -140,7 +137,23 @@ def iter_fastq(filename):
                 raise RuntimeError("Input FASTQ file was not 4x lines long")
             yield header, dna, QC
 
+cdef:
+    bytes LINE_3 = b"\n+\n"
+    bytes END = b'\n'
+    bytes ILLUMINA_FAILED_FILTER = b':Y:'
+    bytes c_gap = b'-'
+    bytes c_N = b'N'
+    char char_gap = c_gap[0]
+    char char_N = c_N[0]
+    int DNA_to_int[256]
+
+for i, nuc in enumerate(b'ACGTN-'):
+    DNA_to_int[nuc] = i
+
 class MasterRead(object):
+    possible_outcomes = ['Filtered', 'Unaligned', 'Wrong Barcode Length', 'Residual N', 'Insufficient Flank', 'Clustered']
+    max_PHRED = 90
+
     def __init__(self, master_read, args):
         self.alignment_flank = args.alignment_flank
         self.training_flank = args.training_flank
@@ -179,11 +192,16 @@ class MasterRead(object):
 
         self.c_ref = self.ref.encode('ascii')
         self.c_train = self.c_ref[:self.training_flank] + self.c_ref[-self.training_flank:]
-        self.max_score = nw.char_score(self.c_ref, self.c_ref)
+        self.max_score = int(nw.char_score(self.c_ref, self.c_ref))
         self.min_align_score = args.min_align_score
+        self.min_int_score = int(np.ceil(args.min_align_score*self.max_score))
         
-    def find_start_stop(self, seq): 
+    def find_start_stop(self, bytes seq): 
         """score=score of [match, mismatch, gap_start, gap_extend]"""
+        cdef:
+            bytes seq_align
+            bytes ref_align
+            int _score
         seq_align, ref_align, _score = nw.char_align(seq, self.c_ref) 
         cdef:
             int ref_start = ref_align.index(c_N)
@@ -192,31 +210,19 @@ class MasterRead(object):
             int barcode_gaps = seq_align[ref_start:ref_stop].count(c_gap)
         return ref_start - head_gaps, ref_stop - head_gaps - barcode_gaps
 
-    def repair_N(self, c_seq):
+    def repair_N(self, bytes c_seq):
         seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
-        return ''.encode('ascii').join([s if (s != c_N or r == c_gap) else r for s, r in zip(seq_align, ref_align) if s != c_gap])
-    
-    def tally_mutations(self, seq, QC):
-        """Keep track of all the deviations from the reference and their QC score."""
-        #assert len(seq) == len(QC)
-        seq_align, ref_align, _score = nw.char_align(seq, self.c_train)
-        qc_i = 0
-        for s, r in zip(seq_align.decode('ascii'), ref_align.decode('ascii')):
-            if s != '-':
-                if s != 'N' and r != 'N' and r != '-':
-                    ix = r+'2'+s, QC[qc_i] - 32
-                    self.PHRED_tally[ix] = self.PHRED_tally.get(ix, 0) + 1
-                qc_i += 1
-    
-    def iter_fastq(self, sample, filenames, input_fastq):
-        from collections import defaultdict
-        scores = defaultdict(int)
+        return bytes(bytearray([s if (s != c_N or r == c_gap) else r for s, r in zip(seq_align, ref_align) if s != c_gap]))
+
+    def iter_fastq(self, input_fastq_iter, filenames):
+        scores = np.zeros(self.max_score+1, dtype=int)
+        mut_tally = np.zeros((6, 5, self.max_PHRED), dtype=int)
         cdef:
             int BL = self.barcode_length
             int TF = self.training_flank
             int CF = self.cluster_flank
             int start, stop
-            double score
+            int score
         
             int Filtered = 0
             int Unaligned = 0
@@ -224,37 +230,25 @@ class MasterRead(object):
             int Residual_N = 0
             int Insufficient_Flank = 0
             int Clustered = 0
-            
-            bytes LINE_3 = '\n+\n'.encode('ascii')
-            bytes END = '\n'.encode('ascii')
-            bytes ILLUMINA_FAILED_FILTER = ':Y:'.encode('ascii') 
-              
-        with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(input_fastq) as input_file:
-            while True:
-                header = input_file.readline()
-                if not header:
-                    break
-                DNA = input_file.readline()[self.pre_slice]
-                input_file.readline()
-                QC = input_file.readline()[self.pre_slice]
+            long [:] score_view = scores
+            long [:, :, :] mut_tally_view = mut_tally
+            int qc_i
+        with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(filenames[2], 'wb', makedirs=True) as unaligned_file:
+            for header, DNA, QC in input_fastq_iter: 
+                DNA = DNA[self.pre_slice]
+                QC = QC[self.pre_slice]
                 if not QC:
                     raise RuntimeError("Input FASTQ file was not 4x lines long")
                 if ILLUMINA_FAILED_FILTER in header:
                     Filtered += 1
                     continue
-                if DNA in self.alignments:
-                    start, stop, score = self.alignments[DNA]
-                else:
-                    start, stop = self.find_start_stop(DNA)
-                    DNA_scoring = DNA[start - self.alignment_flank:stop + self.alignment_flank]
-                    score = nw.char_score(DNA_scoring, self.c_ref)/self.max_score
-                    if len(self.alignments) < self.max_alignments:
-                        self.alignments[DNA] = start, stop, score
+                start, stop = self.find_start_stop(DNA)
+                DNA_scoring = DNA[start - self.alignment_flank:stop + self.alignment_flank]
+                score = nw.char_score(DNA_scoring, self.c_ref)
                 scores[score] += 1
-                if score < self.min_align_score:
+                if score < self.min_int_score:
                     Unaligned += 1
-                    if hasattr(self, 'unaligned'):
-                        self.unaligned[DNA] = 1 + self.unaligned.get(DNA, 0)
+                    unaligned_file.write(DNA+END)
                     continue
                 if abs((stop - start) - BL) > self.allowable_deviation:
                     Wrong_Barcode_Length += 1
@@ -262,15 +256,18 @@ class MasterRead(object):
                 T_s1 = slice(start - TF, start)
                 T_s2 = slice(stop, stop+TF)
                 training_DNA = DNA[T_s1]+DNA[T_s2]
-                if c_N not in training_DNA and len(training_DNA) == 2*TF:
+                if len(training_DNA) == 2*TF:
                     tQC = QC[T_s1]+QC[T_s2]
-                    #assert len(tQC) == len(training_DNA), '{:}\n{:}'.format(training_DNA, tQC)
-                    self.tally_mutations(training_DNA, tQC)                                     # To get my own tally
-                    training_file.write(header+training_DNA+LINE_3+tQC+END)
-                #if len(training_DNA) != 2*TF:
-                #    print(2*TF - len(training_DNA))
-                #if "N" in training_DNA:
-                #    print('N')
+                    if c_N not in training_DNA:
+                        training_file.write(header+training_DNA+LINE_3+tQC+END)
+                    # Tally mutations
+                    seq_align, ref_align, _score = nw.char_align(training_DNA, self.c_train)
+                    qc_i = 0
+                    for s, r in zip(seq_align, ref_align):
+                        if s != char_gap:
+                            mut_tally_view[DNA_to_int[r], DNA_to_int[s], tQC[qc_i] - 32] += 1
+                            qc_i += 1
+        
                 if c_N in DNA:
                     DNA = self.repair_N(DNA)
                 cluster_DNA = DNA[start - CF:start+BL+CF]
@@ -284,11 +281,8 @@ class MasterRead(object):
                     cQC = QC[start-CF:start+BL+CF]
                     assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
                     cluster_file.write(header+cluster_DNA+LINE_3+cQC+END)
-
-        self.instruments[sample] = header.decode('ascii').split(':')[0]
-        self.scores[sample] = pd.Series(scores)
         return pd.Series([Filtered,   Unaligned,   Wrong_Barcode_Length,   Residual_N,   Insufficient_Flank,   Clustered], 
-         index=pd.Index(['Filtered', 'Unaligned', 'Wrong Barcode Length', 'Residual N', 'Insufficient Flank', 'Clustered']))
+         index=pd.Index(self.possible_outcomes)), scores, mut_tally
 
 import regex as re
 class singleMismatcher(object):

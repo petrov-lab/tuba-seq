@@ -3,6 +3,10 @@
 ###############
 old/*
 build/*
+examples/unaligned
+examples/preprocessed
+examples/training
+examples/mutations
 
 # Extras #
 ##########

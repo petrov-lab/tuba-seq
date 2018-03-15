@@ -22,15 +22,19 @@ minor changes to Issac's code:
 cdef extern from 'alignment.h':
     ctypedef struct aligner_t:
         pass
-
-ctypedef aligner_t nw_aligner_t
-
-cdef extern from "needleman_wunsch.h":
     ctypedef struct alignment_t:
         char *result_a
         char *result_b
         int score
 
+ctypedef aligner_t nw_aligner_t
+
+cdef extern from "needleman_wunsch.h":
+#    ctypedef struct alignment_t:
+#        char *result_a
+#        char *result_b
+#        int score
+#
     void needleman_wunsch_free(nw_aligner_t *nw)
 
 cdef extern from "needleman_wunsch.c":
@@ -87,24 +91,28 @@ cdef class NW(object):
                no_gaps_in_a, no_gaps_in_b, no_mismatches, c_case_sensitive)
     
     cpdef add_mutation(self, a, b, int score):
-        char_a = a.encode('ascii')
-        char_b = b.encode('ascii')
         cdef scoring_t *scoring = &(self._scoring)
-        scoring_add_mutation(scoring, char_a[0], char_b[0], score)
+        scoring_add_mutation(scoring, a.encode('ascii')[0], b.encode('ascii')[0], score)
 
     cpdef add_neutral_N(self):
-        cdef scoring_t *scoring = &(self._scoring)
-        scoring_add_mutation(scoring, 'N', 'N', 0)
+        cdef:
+            scoring_t *scoring = &(self._scoring)
+            char N = 'N'.encode('ascii')[0]
+
+        for n in 'ACGT'.encode('ascii'):
+            scoring_add_mutation(scoring, N, n, 0) 
+            scoring_add_mutation(scoring, n, N, 0) 
+        #scoring_add_mutation(scoring, 'N', 'A', 0)
+        #scoring_add_mutation(scoring, 'N', 'C', 0)
+        #scoring_add_mutation(scoring, 'N', 'G', 0)
+        #scoring_add_mutation(scoring, 'N', 'T', 0)
         
-        scoring_add_mutation(scoring, 'N', 'A', 0)
-        scoring_add_mutation(scoring, 'N', 'C', 0)
-        scoring_add_mutation(scoring, 'N', 'G', 0)
-        scoring_add_mutation(scoring, 'N', 'T', 0)
+        #scoring_add_mutation(scoring, 'A', 'N', 0)
+        #scoring_add_mutation(scoring, 'C', 'N', 0)
+        #scoring_add_mutation(scoring, 'G', 'N', 0)
+        #scoring_add_mutation(scoring, 'T', 'N', 0)
         
-        scoring_add_mutation(scoring, 'A', 'N', 0)
-        scoring_add_mutation(scoring, 'C', 'N', 0)
-        scoring_add_mutation(scoring, 'G', 'N', 0)
-        scoring_add_mutation(scoring, 'T', 'N', 0)
+        scoring_add_mutation(scoring, N, N, 0)
 
     cpdef char_align(self, char *seq_a, char *seq_b):
         cdef size_t len_a = len(seq_a)
