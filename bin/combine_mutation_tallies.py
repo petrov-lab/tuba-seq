@@ -18,19 +18,29 @@ parser.add_argument('--outfile', type=str, default='fullTransitionMatrix.csv', h
 args = parser.parse_args()
 Log = logPrint(args)
 
-correct = {'A2A', 'C2C', 'G2G', 'T2T'}
+correct = ['A2A', 'C2C', 'G2G', 'T2T']
+nucleotides = list('ACGT')
 
-data = pd.concat({f.stem:pd.read_csv(f, index=[0]) for f in args.input_dir.iterdir() if f.suffixes[0] == '.csv'}, names=['Sample'])
-full_trans = data.groubpy(level='mutation').sum()
-full_trans.to_csv(args.outfile)
+def reindex_and_clean(df):
+    df = df.loc[(nucleotides, nucleotides), :]
+    df.index = df.index.map('{0[0]}2{0[1]}'.format)
+    df.index.names = ['Mutation']
+    return df
+
+data = pd.concat({f.stem:reindex_and_clean(pd.read_csv(f, index_col=[0, 1])) for f in args.input_dir.iterdir() if f.suffixes[0] == '.csv'}, names=['Sample'])
+data.columns = data.columns.astype(int)
+relevant = data.loc[:, data.sum() > 0]
+
+full_trans = relevant.groupby(level='Mutation').sum()
 
 # Now the report
-gb = data.groupby(level=['Sample'])
+gb = relevant.groupby(level='Sample')
 
 def error_rate(col):
-    return 1 - col.loc[correct].sum()/col.sum()
+    return 1 - col.loc[:, correct].sum()/col.sum()
 
-stats = gb.agg([error_rate, len])
+stats = gb.agg([error_rate, sum]).stack(level=0).sort_index()
+stats.index.names = ['Sample', 'PHRED']
 
 # Things to be interested in: 
 #   1) Error rate of samples relative to expectation.
@@ -38,49 +48,46 @@ stats = gb.agg([error_rate, len])
 #   3) Correspondence between error rate and expectation.
 #   4) Distribution of expectations.
 
-from tuba_seq.fastq import QC_map
-expected_errors = QC_map[32:][:data.columns.max()]
+from tuba_seq.fastq import get_QC_map
+QC_map = get_QC_map()
+expected_errors = QC_map[32:][relevant.columns]
 
-def error_relative_to_expectation(df):
-    L = df.loc['len']
-    N = L.sum()
-    observed = (df.loc['error_rate']*L).sum()/N
-    expected = (expected_errors[df.columns]*L)/N
-    return observed - expected
-
-samples_relative_to_expectation = stats.stack().stack().groupby(level='Sample').agg(error_relative_to_expectation)
+samples_relative_to_expectation = stats.groupby(level='Sample').agg(lambda df: ((df['error_rate'] - expected_errors)*df['sum']).sum()/df['sum'].sum())['error_rate']
 
 Log("Mutation rate of samples in excess of PHRED expectations:\n"+samples_relative_to_expectation.to_string(float_format='{:.4%}'.format), True)
 
-def mutation_error_rate(col):
-    gb = col.groupby(lambda mut: mut[0])
-    rates = gb.transform(lambda f: f/f.sum())
-    rates -= expected_errors[col.name]/3 
-    rates.loc[correct] = np.nan
-    return rates
+def mutation_error_rate(df):
+    observed = df.query('Mutation not in @correct')/df.sum()
+    return observed - expected_errors/3
 
-all_samples = gb.sum()
-full_mut_rate_v_expectation = all_samples.apply(mutation_error_rate)
-L = all_samples.sum()
+full_mut_rate_v_expectation = full_trans.groupby(lambda mut: mut[0]).apply(mutation_error_rate)
+L = full_trans.sum()
+
 ave_mut_rate_v_expectation = (full_mut_rate_v_expectation*L).sum(axis=0)/L.sum()
 
 Log("Mutation types in excess of PHRED expectations:\n"+ave_mut_rate_v_expectation.to_string(float_format='{:.4%}'.format), True)
 
-error_rates = all_samples.apply(error_rate)
-counts = all_samples.loc[~all_samples.index.isin(correct)].sum()
-
-from scipy.stats.distribution import poisson
+error_rates = 1 - full_trans.apply(lambda col: col.loc[correct].sum()/col.sum())
+counts = full_trans.loc[~full_trans.index.isin(correct)].sum()
+from scipy.stats.distributions import poisson
 interval = 0.95
-low_CI, high_CI = poisson.interval(interval, counts)*error_rates/counts
+low_CI, high_CI = poisson.interval(interval, counts)
 
-import matplotlib.pyplot as plt
+low_CI *= error_rates/counts
+high_CI *= error_rates/counts
+
+from ipy import pdf, plt
 ax = plt.gca()
 Y = error_rates.values
 ax.set_yscale('log')
 ax.errorbar(error_rates.index, Y, yerr=(high_CI-Y, Y-low_CI), fmt='.', ecolor='k', elinewidth=2, capsize=0, label='observed')
-ax.plot(np.arange(len(expected_errors)), expected_errors, color='r', label='PHRED definition')
-mu = (error_rates*counts).sum()/counts
-ax.text(0.95, 0.95, 'Error Rate: {:.4%}'.format(mu), transform=ax.transAxes, ha='right', va='top')
+ax.plot(relevant.columns, expected_errors, color='r', label='PHRED definition')
+mu = (L*ave_mut_rate_v_expectation).sum()/L.sum()
+ax.text(0.95, 0.95, 'Excess Error Rate: {:.4%}'.format(mu), transform=ax.transAxes, ha='right', va='top')
 ax.set(xlabel='Combined PHRED Score', ylabel='Error Rate')
-plt.savefig('ErrorRate_v_PHRED.pdf', transparent=True, bbox_inches='tight')
+pdf("ErrorRate_v_PHRED")
+#plt.savefig('ErrorRate_v_PHRED.pdf', transparent=True, bbox_inches='tight')
 
+for i in range(full_trans.columns.max()):
+    full_trans[i] = full_trans[i] if i in full_trans.columns else np.zeros(len(full_trans))
+full_trans.sort_index(axis=1).to_csv(args.outfile, index_label=False)

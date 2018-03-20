@@ -143,6 +143,8 @@ cdef:
     bytes ILLUMINA_FAILED_FILTER = b':Y:'
     bytes c_gap = b'-'
     bytes c_N = b'N'
+    int o_gap = ord(c_gap)
+    int o_N = ord(c_N)
     char char_gap = c_gap[0]
     char char_N = c_N[0]
     int DNA_to_int[256]
@@ -212,7 +214,7 @@ class MasterRead(object):
 
     def repair_N(self, bytes c_seq):
         seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
-        return bytes(bytearray([s if (s != c_N or r == c_gap) else r for s, r in zip(seq_align, ref_align) if s != c_gap]))
+        return bytes(bytearray([s if (s != o_N or r == o_gap) else r for s, r in zip(seq_align, ref_align) if s != o_gap]))
 
     def iter_fastq(self, input_fastq_iter, filenames):
         scores = np.zeros(self.max_score+1, dtype=int)
@@ -279,7 +281,7 @@ class MasterRead(object):
                 else:
                     Clustered += 1
                     cQC = QC[start-CF:start+BL+CF]
-                    assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
+                    #assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
                     cluster_file.write(header+cluster_DNA+LINE_3+cQC+END)
         return pd.Series([Filtered,   Unaligned,   Wrong_Barcode_Length,   Residual_N,   Insufficient_Flank,   Clustered], 
          index=pd.Index(self.possible_outcomes)), scores, mut_tally
@@ -333,6 +335,9 @@ cdef double dp = 0.7943282347
 QC_map[33] = 1.0
 for i in range(34, 128):
     QC_map[i] = dp*QC_map[i - 1]
+
+def get_QC_map():
+    return np.array(QC_map)[:128]
 
 def _expected_errors(QC):
     Q_score_s = QC.encode('ascii')

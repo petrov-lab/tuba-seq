@@ -85,7 +85,9 @@ class _mid_fastq_iter(object):
     def __exit__(self):
         self.f.close()
 
-def fastq_map_sum(in_fastq, out_filenames, func, CPUs=CPUs-1, temp_dir='tmp'):
+compressions = dict(gzip='gunzip',gz='gunzip', bz2='bunzip2', lzma='unxz', xz='unxz') 
+
+def fastq_map_sum(in_fastq, out_filenames, func, CPUs=CPUs-1, temp_dir='tmp', uncompress_input=True):
     """Asynchronously processes an input fastq file.
 
 Processes reads from a single FASTQ file by distributing the analysis work *and*
@@ -102,6 +104,13 @@ out_files : List of output filenames. Compression must be smart_open compliant.
 func : func(fastq_read_iter, out_filenames) -> tuple of sum-able objects. 
 
 """
+    basename = in_ext = os.path.splitext(in_fastq)[1:]
+    if in_ext in compressions and uncompress_input:
+        algorithm = compressions[in_ext]
+        print("Uncompressing", in_fastq, 'with', algorithm, "(Cannot parallel-process a compressed file)...")
+        os.system([algorithm, in_fastq])
+        in_fastq = basename
+    
     with open(in_fastq, 'rb') as f:
         seq_id = f.readline().partition(':'.encode('ascii'))[0]
         file_length = f.seek(0, 2)

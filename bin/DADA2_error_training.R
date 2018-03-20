@@ -12,9 +12,6 @@
 library(dada2, quietly=TRUE)
 library(tools)
 
-args <- commandArgs(trailingOnly=FALSE)
-script.filename <- gsub('--file=', "", grep('--file=', args, value=TRUE)[[1]])
-script.directory <- dirname(script.filename)
 derep.directory <- commandArgs(trailingOnly=TRUE)[1] 
 
 omega <- 1e-300         # 'The alpha & the omega' parameter of barcode clustering
@@ -53,7 +50,6 @@ names(dereps) <- sapply(sample.filenames, file_path_sans_ext)
 
 ####################### ERROR TRAINING ########################################
 message("Running Error-training DADA2 on ", length(dereps), " samples with omega = ", omega)
-
 dadas <- dada(  dereps,
                 OMEGA_A=omega,
                 selfConsist=TRUE,
@@ -61,6 +57,7 @@ dadas <- dada(  dereps,
                 MAX_CONSIST=200,
                 multithread=TRUE)
 
+warnings()
 message("Saving model to ", training.filename)
 saveRDS(dadas, file=training.filename)
 
@@ -80,6 +77,9 @@ message("The mean size of the largest cluster is ", round(mean(largest.cluster.f
 message("This cluster should dominate (i.e. exceed 95% of the total) as, ideally, there is only 1 training cluster.")
 
 trans <- lapply(dadas, function(df) df$trans)
+for (i in 1:length(trans)) {
+  storage.mode(trans[[i]]) <- 'double'
+}
 all_trans <- Reduce("+", trans)
 model <- dadas[[1]]$err_out 
 correct_nuc <- c('A2A', 'C2C', 'G2G', 'T2T')
@@ -90,8 +90,8 @@ model.errs <- colMeans(model[correct_nuc,])
 
 message("Estimated a total error rate of ", sprintf("%.4f%%",(sum(totals) - sum(corrects))*100/sum(totals) ), " (0.1 - 0.5% is typical.) By Phred Score:")
 
-cohorts <- if(paired.end.reads) c(0, 20, 40, 50, 56, 58, 60, 61, 62, 63) else c(0, 20, 30, 36, 38, 39, 40, 41)
-#cohorts <- c(0, 20, 30, 36, 38, 39, 40, 41)
+#cohorts <- if(paired.end.reads) c(0, 20, 40, 50, 56, 58, 60, 61, 62, 63) else c(0, 20, 30, 36, 38, 39, 40, 41)
+cohorts <- if(paired.end.reads) c(0, 20, 40, 50, 60, 65, 70, 75, 77, 79, 80, 81, 82, 83) else c(0, 20, 30, 36, 38, 39, 40, 41)
 
 message("Phred Range | Error Rate | LOWESS-Average | Millions of Nucleotides in Range")
 for (i in 1:(length(cohorts)-1)) {
@@ -99,7 +99,7 @@ for (i in 1:(length(cohorts)-1)) {
   Correct <- sum(corrects[(cohorts[[i]]+1):cohorts[[i+1]]]);
   
   err.rate <- 1 - mean(model.errs[(cohorts[[i]]+1):cohorts[[i+1]]]);
-  message(sprintf("%d-%d           %.3f%%       %.3f%%       %.1f", 
+  message(sprintf("%d-%d           %.4f%%       %.4f%%       %.1f", 
         cohorts[[i]], cohorts[[i+1]] - 1, (Total - Correct)*100/Total, err.rate*100, Total*1e-6));
 }
 

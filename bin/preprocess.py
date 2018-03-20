@@ -72,7 +72,7 @@ if len(instruments.value_counts()) > 1:
     sys.exit()
 
 if not args.single:
-    Log('Processing {:} samples found in {:}.'.format(len(input_fastqs), args.input_dir), print_line=True)
+    Log('Processing {:} samples found in {:}.'.format(len(input_fastqs), args.input_dir), True)
 
 def process_fastq(ix):
     sample = samples[ix]

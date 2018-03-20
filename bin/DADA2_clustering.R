@@ -29,7 +29,8 @@
 ############################### I/O Options ###################################
 in.directory <- "preprocessed"
 out.directory <- "clustered"
-training.filename <- "trainingDADA.rds"
+#training.filename <- "trainingDADA.rds"
+training.filename <- "/home/chris/data/ann/fullTransitionMatrix.csv"
 overwrite.existing.file <- FALSE
 
 ############## IMPORTANT CLUSTERING DADA2 OPTIONS #############################
@@ -78,7 +79,8 @@ if (grepl(".rds", training.filename)) {
   error <- error.model.dadas[[1]]$err_out 
 } else if (grepl('.csv', training.filename)) {
   trans <- read.csv(file=training.filename, header=TRUE)
-  error <- loessErrfun(trans)
+  colnames(trans) <- as.integer(substr(names(trans), start=2, stop=99))
+  error <- loessErrfun(as.matrix(trans))
 } else {
   stop("training.filename must be a csv or rds file.")
 }
