@@ -6,23 +6,27 @@ also logged.
 
 """
 from datetime import datetime
-import atexit, warnings, functools, os
+import atexit, warnings, functools
+from pathlib import Path
+
+import gzip, bz2, lzma
+file_openers = dict(gz=gzip.open, gzip=gzip.open, lzma=lzma.open, xz=lzma.open, bz2=bz2.open)
 
 def smart_open(filename, mode='rb', makedirs=False):
-    if makedirs:
-        directory = os.path.dirname(filename)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-    if filename[-5:] == '.gzip' or filename[-3:] == '.gz':
-        from gzip import open
-    elif filename[-4:] == '.bz2':
-        from bz2 import open
-    elif filename[-5:] == '.lzma':
-        from lzma import open
-    else:
-        from builtins import open
-    return open(filename, mode)
+    """Infers compression of file from extension.
 
+Parameters:
+-----------
+mode : Filemode string (default: 'rb').     
+
+makedirs : Create directory tree for file, if non-existent (default: False).
+"""
+    File = Path(filename)
+    if makedirs: 
+        File.parent.mkdir(exist_ok=True)
+    open_func = file_openers.get(File.suffix[1:], open)
+    return open_func(str(filename), mode)
+    
 class logPrint(object):
     def line_break(self):
         self.f.write(80*'-'+'\n')
@@ -36,6 +40,7 @@ class logPrint(object):
             self.f.write((len(line)+4)*"#"+'\n')
         else:
             self.f.write(str(line)+'\n')        
+        self.f.flush()
 
     def close_logPrint(self):
         runtime = datetime.now() - self.start_time

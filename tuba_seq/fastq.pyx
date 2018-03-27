@@ -122,20 +122,26 @@ nw.add_neutral_N()
 
 def cprint(s): print(s.decode('ascii'))
 
-
 from shared import smart_open
-def iter_fastq(filename):
-    with smart_open(filename) as f:
-        while True:
-            header = f.readline()
-            if not header:
-                break
-            dna = f.readline()
-            f.readline()
-            QC = f.readline()
-            if not QC:
-                raise RuntimeError("Input FASTQ file was not 4x lines long")
-            yield header, dna, QC
+class IterFASTQ(object): 
+    def __iter__(self): return self
+    
+    def __init__(self, filename): 
+        self.filename = filename
+        self.f = smart_open(self.filename)
+
+    def __next__(self):
+        header = self.f.readline()
+        if not header:
+            self.f.close()
+            raise StopIteration
+        dna = self.f.readline()
+        self.f.readline()
+        QC = self.f.readline()
+        if not QC:
+            self.f.close()
+            raise RuntimeError("Input FASTQ file was not 4x lines long")
+        return header, dna, QC
 
 cdef:
     bytes LINE_3 = b"\n+\n"
@@ -287,13 +293,14 @@ class MasterRead(object):
          index=pd.Index(self.possible_outcomes)), scores, mut_tally
 
 import regex as re
-class singleMismatcher(object):
-    def __init__(self, substring):
-        self.pattern_obj = re.compile(substring+'{s<=1}')
+class Mismatcher(object):
+    def __init__(self, substring, n_substitutions=1):
+        self.pattern_obj = re.compile("("+substring+'){s<='+str(n_substitutions)+'}')
 
     def find(self, searchstring):
         search_obj = self.pattern_obj.search(searchstring)
         return search_obj.start() if search_obj is not None else -1
+
 
 def hamming_distance(a, b):
     from scipy.spatial.distance import hamming
