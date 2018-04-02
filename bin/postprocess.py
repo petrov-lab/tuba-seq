@@ -2,7 +2,7 @@
 import argparse 
 import pandas as pd
 import numpy as np
-from tuba_seq.fastq import singleMismatcher
+from tuba_seq.fastq import Mismatcher
 from tuba_seq.shared import logPrint
 from pathlib import Path
 
@@ -13,10 +13,10 @@ parser.add_argument('sgRNA_file', help='All sgRNAs used and their corresponding 
 parser.add_argument('--dir', dest='directory', type=Path, default='clustered', help='Directory containing all the DADA2 clustering outputs.')
 parser.add_argument('-o', '--out_file', type=str, default='combined.csv', help='CSV file with the consolidated samples and their sgID-target annotations.')
 parser.add_argument('-i', '--input', default='dada2', choices=['dada2', 'bartender', 'derep'], help='Barcode output to handle.')
-parser.add_argument('-d', '--derep', action='store_true', help="Process derep'ed .rds files that have gone through preprocessing.")
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 parser.add_argument('-p', '--parallel', dest='parallel', action='store_true', help='Parallelize operation.')
 parser.add_argument('--indel_tolerated', type=int, default=2, help='Size of indel tolerated when attempting to annotate the sgID.')
+parser.add_argument('--substitutions_tolerated', type=int, default=1, help='Number of substitutions tolerated when attempting to annotate the sgID.')
 #parser.add_argument('--master_read', type=str, default='', help='Read outline to expect.')
 parser.add_argument('--flank', type=int, default=4, help='Expected beginning and end length of reads.')
 
@@ -25,21 +25,20 @@ Log = logPrint(args)
 if args.parallel:
     from tuba_seq.pmap import pmap as map 
 
+merge_rules = dict(abundance=np.sum)
 if args.input == 'bartender':
-    merge_rules = dict(abundance=np.sum)
     indel_tolerated = 0
     def read_input(filename): 
         return pd.read_csv(filename, usecols=[1, 3], header=0, names=['sequence', 'abundance'])
     file_glob = '*.csv*'
 elif args.input == 'dada2':
-    merge_rules = dict(abundance=np.sum, n0=np.sum, n1=np.sum, nunq=np.sum, pval=np.prod, birth_pval=np.prod, birth_ham=np.min)
+    merge_rules.update(dict(n0=np.sum, n1=np.sum, nunq=np.sum, pval=np.prod, birth_pval=np.prod, birth_ham=np.min))
         # Dictionary of reduction operators to aggregate DADA2 clusters deemed identical
     indel_tolerated = args.indel_tolerated
     def read_input(filename):
-        return pd.read_csv(filename, usecols=list(merge_rules.keys()+['sequence']))
+        return pd.read_csv(filename, usecols=list(merge_rules.keys())+['sequence'])
     file_glob = '*.csv*'
 elif args.input == 'derep':
-    merge_rules = dict(abundance=np.sum)
     indel_tolerated = args.indel_tolerated
     import rpy2.robjects as robjects
     from rpy2.robjects import pandas2ri
@@ -61,7 +60,7 @@ assert (sgID_lengths == sgID_length).all(), 'This program expects all sgIDs to b
 
 sgID_map = sg_info.set_index('ID')['target']
 
-sg_matchers = pd.Series({target:singleMismatcher(sg_id) for sg_id, target in sgID_map.items()})
+sg_matchers = pd.Series({target:Mismatcher(sg_id, n_substitutions=args.substitutions_tolerated) for sg_id, target in sgID_map.items()})
 
 def search_sgRNA_and_barcode(row, flanking_seq_length):
     """search_sgRNA_and_barcode(DADA2_cluster_row) -> row with correct sgRNA/barcode
@@ -102,7 +101,7 @@ def load_clusters_annotate_sgRNAs_and_merge(filename):
 
 This function combines the loading, annotation, and merging steps to permit parallelization. 
 """
-    sample = filename.stem
+    sample = filename.name.partition('.')[0]
     df = read_input(filename)
         # Immediately trim sequences down to the maximum indel tolerated. 
     #master_read = infer_master_read(df['sequence'][:10000])
@@ -120,8 +119,7 @@ This function combines the loading, annotation, and merging steps to permit para
     df.loc[failed_matches, :] = df.loc[failed_matches, :].apply(search_sgRNA_and_barcode, args=(flanking_seq_length,), axis=1)
     assert not df['target'].isnull().any(), "Failed to annotate an RNA"
         # Merge any tumors with the exact sgRNA annotation & random barcode sequence
-    merge_rules['ID'] = lambda S: S.value_counts().idxmax()
-    merged = df.groupby(['target', 'barcode']).agg(merge_rules)
+    merged = df.groupby(['target', 'barcode']).agg({'ID':lambda S: S.value_counts().idxmax(), **merge_rules})
         # Return output & summary of merges/matching
     if args.verbose:
         print("Completed", sample, '...') 

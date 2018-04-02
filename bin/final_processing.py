@@ -3,7 +3,7 @@ import argparse, os
 import pandas as pd
 import numpy as np
 from tuba_seq.shared import logPrint
-from tuba_seq.reports import plt
+from tuba_seq.reports import plt, barcode_diversity, contamination
 import seaborn as sns
 
 tuba_seq_dir = os.path.dirname(__file__)
@@ -24,7 +24,7 @@ IO_group.add_argument('-s', '--spike_barcodes', nargs='+', default='infer', help
 IO_group.add_argument('--report', action='store_true', help='Graph the best-fitting model of GC bias, and provide a report on Barcode Diversity & potential contaminations.')
 
 OP_group = parser.add_argument_group('OP', 'Optional arguments affecting operation')
-OP_group.add_argument('--final_filter', default='Concentration >= 1 and Cells >= 500', help='Final barcode filter')
+OP_group.add_argument('--final_filter', default='(Concentration >= 1 and Cells >= 500) or Cells >= 5000', help='Final barcode filter')
 OP_group.add_argument('-p', '--parallel', action='store_true', help='Parallelize operation.')
 OP_group.add_argument('--spike_cells', type=float, default=500000, help='Number of cells in the spiked-in barcodes.')
 OP_group.add_argument('-c', '--cell_metric', type=str, default='n0 + n1', help='Measure of cell abundance to use (can be any valid pandas.DataFrame.eval argument).')
@@ -71,7 +71,7 @@ if args.find_order:
     orders = np.arange(2, args.max_order+1)
     models = map(model_fit, orders)
     R2 = pd.Series([model.rsquared_adj for model in models], index=orders)
-    args.order = R2.argmax()
+    args.order = R2.idxmax()
     Log.line_break()
     Log("Comparison of models of GC-bias")
     Log.line_break()
@@ -107,18 +107,20 @@ if args.report:
 predictor = pd.Series(model.predict(), index=data.index)
 
 predictions = predictor.loc[residual.index.get_level_values('GCs')].values
+#predictions2 = predictor.reindex(residual.index.get_level_values('GCs')).values
+#assert (predictions == predictions2).all()
 clean.insert(0, 'GC_corrected', Y - predictions if args.linear else np.exp(Y - predictions))
 
 ################# Calculate Absolute Cell Number & final Statistics ###########
 
 if args.spike_barcodes == 'infer':
     min_necessary_spike_fraction = 0.01    #fraction of largest barcode to qualify as legitimate
-    spike_candidates = clean.loc[(slice(None), 'Spike'), 'GC_corrected'].groupby(level='barcode').sum()
+    spike_candidates = clean.query('target == "Spike"')['GC_corrected'].groupby(level='barcode').sum()
     candidate_frac = spike_candidates/spike_candidates.sum()
     candidate_frac.name = 'fractional abundance'
     spike_BCs = candidate_frac.loc[candidate_frac > min_necessary_spike_fraction]
     Log("Identified the following spike-in barcodes as legit:", True)
-    Log(spike_BCs, True)
+    Log(spike_BCs.to_string(float_format='{:.1%}'.format), True)
     spike_barcodes = spike_BCs.index.values
 else:
     spike_barcodes = args.spike_barcodes
@@ -149,8 +151,7 @@ tumor_df.to_csv(args.simple_out_file+'.gz', index=False, compression='gzip')
 tumors = tumor_df.set_index(["Sample", 'target', 'barcode'])["Cells"]
 
 if args.report:
-    from tuba_seq.reports import barcode_diversity, contamination
-    Log("Graphing on the Diversity of the Random Barcodes...")
+    Log("Graphing the dversity of barcodes...")
     barcode_diversity(tumors)
     contaminants = contamination(tumors) 
     if len(contaminants) == 0:

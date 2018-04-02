@@ -42,32 +42,78 @@ def identify_outliers_by_target_profile(normalized_tumors, metric=LN_mean, alpha
     outliers.insert(1, 'Cas9 Activity?', most_active_sgRNA_pscore.apply(lambda p: 'yes' if p < alpha/active_m else 'no'))
     return outliers
 
-def contamination(tumor_numbers, alpha=0.5):
+def deconstruct_size_ratios(lSR, min_detectable_contamination, n_components=3 ):
+    from sklearn.mixture import GaussianMixture as model
+    start = -np.log10(min_detectable_contamination)
+    m = model(
+        n_components=n_components,
+        covariance_type='spherical',
+        max_iter=100,               # default: 100
+        n_init=1,                   # default: 1
+        init_params='random',
+        means_init=np.r_[np.zeros(n_components-1), start].reshape(-1, 1)
+        )
+    return m.fit(lSR.values.reshape(-1, 1))
+
+def contamination(tumor_numbers, alpha=0.5, min_detectable_contamination=0.1):
     from statsmodels.formula.api import ols
+    from scipy.stats.distributions import poisson
     
     M = tumor_numbers.unstack(level='Sample')
-    I = M.notnull()
-    N_mice = len(I.columns)
-    if N_mice < 2:
-        print("Can't find contaminants with only 1 mouse.")
+    min_tumor_size = tumor_numbers.min()
+    contaminators = M.apply(lambda S: S > min_tumor_size/min_detectable_contamination)
+    contaminants = M.notnull()
+    N_mice = len(M.columns)
+    if N_mice < 3:
+        print("Can't find contaminants with less than 3 mice.")
         return pd.DataFrame()
-    m = N_mice*(N_mice - 1)/2
+    conditional_barcode_freq = (contaminants.sum(axis=1) - 1)/(N_mice - 1)
+    contaminant_BCs = contaminants.sum()
+    mean_BCs = contaminant_BCs.mean()
+    def find_contaminants(contaminator, contaminant):
+        overlap = contaminant*contaminator
+        Size_Ratio = M.loc[overlap, contaminator.name] / M.loc[overlap, contaminant.name]
+        OB = overlap.sum()
+        EOB = conditional_barcode_freq.loc[contaminator].sum()*contaminant_BCs.loc[contaminant.name]/mean_BCs 
+        #print(contaminator.sum(), contaminant.sum(), OB/EOB, poisson.cdf(EOB, OB))
+        if OB/EOB > 5:
+            lSR = np.log10(Size_Ratio)
+            f = plt.figure()
+            ax = plt.gca()
+            n, bins, patches = ax.hist(lSR, bins=40)
+            gmm = deconstruct_size_ratios(lSR, min_detectable_contamination)
+            stats = pd.DataFrame(dict(means=gmm.means_.flatten(), weights=gmm.weights_.flatten(), stds=np.sqrt(gmm.covariances_.flatten())))
+            bic = gmm.bic(lSR.reshape(-1, 1))
+            print(contaminator.name, contaminant.name, 'BIC: {:.1}'.format(bic))
+            print(stats.to_string(float_format='{:.2}'.format))
+            X = np.linspace(bins[0], bins[-1], 400)
+            Y = np.exp(gmm.score_samples(X.reshape(-1, 1)).flatten())
+            Y /= Y.max()/n.max()
+            ax.plot(X, Y, 'r-') 
+            plt.savefig('{:}_{:}.pdf'.format(contaminator.name, contaminant.name), format='pdf', bbox_inches='tight')
+        return pd.Series({
+            'Fraction_of_Reads'        : M.loc[overlap, contaminant.name].mean() / M.loc[overlap, contaminator.name].mean(),
+            'Overlapping_Barcodes'     : overlap.sum(),
+            'Expected_Barcode_Overlap' : conditional_barcode_freq.loc[contaminator].sum()*contaminant_BCs.loc[contaminant.name]/mean_BCs,
+            'N_contaminant'            : contaminant.sum(), 
+            'N_contaminator'           : contaminator.sum()})
+        
+    df = pd.DataFrame({(name_ator, name_ant):find_contaminants(contaminator, contaminant) for name_ator, contaminator in contaminators.iteritems() for name_ant, contaminant in contaminants.iteritems() if name_ator != name_ant}).T
+    df.index.names = ['Contaminator', 'Contaminant']
+    return df
 
-    def find_contaminants(S_m):
-        N = S_m.sum()
-        I_other = I.drop(S_m.name, axis=1)
-        Overlap = I_other.mul(S_m, axis=0)
-        N_overlap = Overlap.sum()
-        N_both = I_other.sum() + N - N_overlap
-        df = pd.DataFrame(dict(N_both=N_both, enrichment=N_overlap/N_both))
-        regression = ols("enrichment ~ N_both", data=df).fit()
-        out = regression.outlier_test(method='sidak', alpha=alpha)
-        out.index.names = ['is contaminated by']
-        out.columns.names = ['Statistic']
-        out['p_value'] = out['unadj_p']*m
-        out['Size_Ratio'] = Overlap.apply(lambda Overlap_i: M.loc[Overlap_i.values, S_m.name].mean() / M.loc[Overlap_i.values, Overlap_i.name].mean(), axis=0)
-        return out.query('student_resid > 1 and Size_Ratio > 1 and p_value < '+str(alpha))[['p_value', 'Size_Ratio']]
-    return pd.concat({mouse:find_contaminants(S_m) for mouse, S_m in I.iteritems()}, names=['Sample'])
+    m = N_mice*(N_mice - 1)
+    print(df)
+    df['p_value'] = df.apply(lambda row: poisson.cdf(row['Expected_Barcode_Overlap'], row['Overlapping_Barcodes']) , axis=1)
+    df['FWER'] = df['p_value'].apply(lambda p: min(0.5, p*m))
+    regression = ols("Overlaping_Barcodes ~ Expected_Barcode_Overlap", data=df).fit()
+    print(regression.summary())
+    out = regression.outlier_test(method='sidak', alpha=alpha)
+    #out.index.names = ['is contaminated by']
+    #out.columns.names = ['Statistic']
+    #out['p_value'] = out['unadj_p']*m
+    #return out.query('student_resid > 1 and Size_Ratio > 1 and FWER < '+str(alpha))[['FWER', 'Size_Ratio', "Overlapping_Barcodes", 'Expected_Barcode_Overlap']]
+    return out.query('Fraction_of_Reads < 1 and FWER < '+str(alpha))[['FWER', 'Fraction_of_Reads', "Overlapping_Barcodes", 'Expected_Barcode_Overlap']]
 
 def barcode_diversity(tumor_numbers, plot=True):
     sns.set_style('whitegrid')

@@ -1,4 +1,4 @@
-#!/usr/bin/Rscript
+!/usr/bin/env Rscript
 
 directory <- paste0(commandArgs(trailingOnly=TRUE)[1], '/')
 library(dada2)

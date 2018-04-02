@@ -1,4 +1,4 @@
-#!/usr/bin/Rscript
+#!/usr/bin/env Rscript
 
 file <- commandArgs(trailingOnly=TRUE)[1]
 library(dada2)

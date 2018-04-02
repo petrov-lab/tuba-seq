@@ -224,7 +224,7 @@ class MasterRead(object):
 
     def iter_fastq(self, input_fastq_iter, filenames):
         scores = np.zeros(self.max_score+1, dtype=int)
-        mut_tally = np.zeros((6, 5, self.max_PHRED), dtype=int)
+        #mut_tally = np.zeros((6, 5, self.max_PHRED), dtype=int)
         cdef:
             int BL = self.barcode_length
             int TF = self.training_flank
@@ -239,8 +239,9 @@ class MasterRead(object):
             int Insufficient_Flank = 0
             int Clustered = 0
             long [:] score_view = scores
-            long [:, :, :] mut_tally_view = mut_tally
+            #long [:, :, :] mut_tally_view = mut_tally
             int qc_i
+        
         with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(filenames[2], 'wb', makedirs=True) as unaligned_file:
             for header, DNA, QC in input_fastq_iter: 
                 DNA = DNA[self.pre_slice]
@@ -268,13 +269,13 @@ class MasterRead(object):
                     tQC = QC[T_s1]+QC[T_s2]
                     if c_N not in training_DNA:
                         training_file.write(header+training_DNA+LINE_3+tQC+END)
-                    # Tally mutations
-                    seq_align, ref_align, _score = nw.char_align(training_DNA, self.c_train)
-                    qc_i = 0
-                    for s, r in zip(seq_align, ref_align):
-                        if s != char_gap:
-                            mut_tally_view[DNA_to_int[r], DNA_to_int[s], tQC[qc_i] - 32] += 1
-                            qc_i += 1
+                    # Tally mutations -- less effective than DADA2 training
+                    # seq_align, ref_align, _score = nw.char_align(training_DNA, self.c_train)
+                    # qc_i = 0
+                    # for s, r in zip(seq_align, ref_align):
+                    #     if s != char_gap:
+                    #         mut_tally_view[DNA_to_int[r], DNA_to_int[s], tQC[qc_i] - 32] += 1
+                    #         qc_i += 1
         
                 if c_N in DNA:
                     DNA = self.repair_N(DNA)
@@ -290,7 +291,7 @@ class MasterRead(object):
                     #assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
                     cluster_file.write(header+cluster_DNA+LINE_3+cQC+END)
         return pd.Series([Filtered,   Unaligned,   Wrong_Barcode_Length,   Residual_N,   Insufficient_Flank,   Clustered], 
-         index=pd.Index(self.possible_outcomes)), scores, mut_tally
+         index=pd.Index(self.possible_outcomes)), scores #, mut_tally
 
 import regex as re
 class Mismatcher(object):

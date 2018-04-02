@@ -29,7 +29,7 @@ parser.add_argument('--compression', default='gz', choices=['bz2', 'gz', 'lzma',
     help='Compression algorithm for output.')
 parser.add_argument('--indel', default=1, type=int, 
     help='Tolerable deviation from expected spacer.')
-parser.add_argument('--substitutions', default=2, type=int, 
+parser.add_argument('--substitutions', default=3, type=int, 
     help='Tolerable substitutions from expected string')
 parser.add_argument('--use_reverse', action='store_true', 
     help='Use the reverse N-length to more-conservatively assign reads.')
@@ -85,7 +85,6 @@ Files = args.input.glob('*.fastq*') if args.input.is_dir() else [args.input]
 def split_fastq(filename):
     bad_combos = defaultdict(int)
     reads = 0
-    failures = 0
     input_name = filename.stem.split('.')[0]
     spacers = samples.loc[filename.name].reset_index()
     
@@ -96,35 +95,43 @@ def split_fastq(filename):
     reverse_finder = StringFinder(args.reverse[::-1], reverse_spacers)
     output_files = {sample:smart_open(args.output_dir / (sample + fastq_ext), 'wb', makedirs=True) for sample in spacers['sample']}
     output_files['Failed'] = smart_open(args.failed_dir / (input_name + fastq_ext), 'wb', makedirs=True)
+    destinations = dict(zip(output_files.keys(), len(output_files)*[0]))
     for bheader, bDNA, bQC in IterFASTQ(filename):
         DNA = bDNA.decode('ascii')
-        spacers = forward_finder.find(DNA), reverse_finder.find(DNA[::-1]) #DNA[-args.reverse_inset::-1])
+        spacers = forward_finder.find(DNA), reverse_finder.find(DNA[::-1]) 
         if spacers in mapper:
             fastq = mapper[spacers]
         elif spacers[0] in forward_spacers:
             if spacers[1] in reverse_spacers:
                 bad_combos[spacers] += 1
-            fastq = 'Failed' if args.use_reverse else mapper[spacers[0]].iloc[0]
+            fastq = 'Failed' if args.use_reverse else mapper[spacers[0]].iloc[0] 
         else: 
             fastq = 'Failed' 
-        failures += fastq == 'Failed'
+        destinations[fastq] += 1 
         output_files[fastq].write(bheader+bDNA+b'+\n'+bQC)
         reads += 1
+        if reads >= 100000:
+            break
 
     for output_file in output_files.values(): 
         output_file.close()
     
+    failures = destinations.pop("Failed")
+    successes = reads - failures
     bad_combos = pd.Series(bad_combos)
     outcomes = pd.concat({  'Forward' : forward_finder.summarize(),
                             'Reverse' : reverse_finder.summarize(),
                             'Overall' : pd.Series({
                                 'Bad Combo'    : int(bad_combos.sum()), 
-                                'Success'      : reads - failures,
+                                'Success'      : successes,
                                 'reads'        : reads})
                         })
     percents = outcomes/reads    
     verbose = percents['Overall', 'Success'] < 0.9
-    Log("Successfully split {:.2%} of {:,} reads in {:}...".format(percents['Overall', 'Success'], reads, input_name), True)
+    Log("Successfully split {:.2%} of {:,} reads in {:} into:".format(percents['Overall', 'Success'], reads, input_name), True)
+    reverse_mapper = mapper.reset_index().set_index("sample")
+    for name, destination in destinations.items():
+        Log('{:>20}: {:.1%} of successful reads, {:}N/{:}N spacers.'.format(name, destination/successes, *reverse_mapper.loc[name]), True)
     Log(percents.to_string(float_format='{:.2%}'.format), verbose)
     #TopN_bad_combos = (bad_combos.sort_values(ascending=False)/bad_combos.sum()).iloc[:N_bad_combos]
     #Log('Top {:} bad combos (% of total bad combos):\n'.format(N_bad_combos)+TopN_bad_combos.to_string(float_format='{:.2%}'.format), verbose)
