@@ -1,5 +1,3 @@
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -42,23 +40,31 @@ def identify_outliers_by_target_profile(normalized_tumors, metric=LN_mean, alpha
     outliers.insert(1, 'Cas9 Activity?', most_active_sgRNA_pscore.apply(lambda p: 'yes' if p < alpha/active_m else 'no'))
     return outliers
 
-def deconstruct_size_ratios(lSR, min_detectable_contamination, n_components=3 ):
+inverse_dict={np.sqrt:np.square, np.log:np.exp}
+def deconstruct_size_ratios(SR, min_detectable_contamination=0.05, n_components=3, transform=np.sqrt, std_threshold=0.25):
     from sklearn.mixture import GaussianMixture as model
-    start = -np.log10(min_detectable_contamination)
+    inv = inverse_dict[transform]
+    tSR = transform(SR)
     m = model(
         n_components=n_components,
         covariance_type='spherical',
-        max_iter=100,               # default: 100
-        n_init=1,                   # default: 1
-        init_params='random',
-        means_init=np.r_[np.zeros(n_components-1), start].reshape(-1, 1)
-        )
-    return m.fit(lSR.values.reshape(-1, 1))
+        max_iter=1000,                # default: 100
+        n_init=50,                   # default: 1
+        init_params='random')
+    gmm = m.fit(tSR.values.reshape(-1, 1))
+    stats = pd.DataFrame(dict(mean=gmm.means_.flatten(), weight=gmm.weights_.flatten())).apply(inv)
+    stats['std'] = np.sqrt(gmm.covariances_.flatten())
+    contaminants = stats.query('mean > 1 and mean < 1/@min_detectable_contamination and weight > @min_detectable_contamination and std <= @std_threshold')
+    bic = gmm.bic(tSR.values.reshape(-1, 1))
+    return dict(isContamination=len(contaminants) == 1 and bic < 0,
+                stats=stats, 
+                Contaminating_Fraction = 1/(1 + contaminants['mean'].values[0]) if len(contaminants) == 1 else np.nan, 
+                GMM=gmm,
+                bic=bic, 
+                transform=transform)
 
-def contamination(tumor_numbers, alpha=0.5, min_detectable_contamination=0.1):
-    from statsmodels.formula.api import ols
+def contamination(tumor_numbers, alpha=0.01, min_detectable_contamination=0.05, map=map, graph_contaminations=True, min_size_ratio=0.75, graph_columns=4):
     from scipy.stats.distributions import poisson
-    
     M = tumor_numbers.unstack(level='Sample')
     min_tumor_size = tumor_numbers.min()
     contaminators = M.apply(lambda S: S > min_tumor_size/min_detectable_contamination)
@@ -69,51 +75,59 @@ def contamination(tumor_numbers, alpha=0.5, min_detectable_contamination=0.1):
         return pd.DataFrame()
     conditional_barcode_freq = (contaminants.sum(axis=1) - 1)/(N_mice - 1)
     contaminant_BCs = contaminants.sum()
-    mean_BCs = contaminant_BCs.mean()
-    def find_contaminants(contaminator, contaminant):
-        overlap = contaminant*contaminator
-        Size_Ratio = M.loc[overlap, contaminator.name] / M.loc[overlap, contaminant.name]
-        OB = overlap.sum()
-        EOB = conditional_barcode_freq.loc[contaminator].sum()*contaminant_BCs.loc[contaminant.name]/mean_BCs 
-        #print(contaminator.sum(), contaminant.sum(), OB/EOB, poisson.cdf(EOB, OB))
-        if OB/EOB > 5:
-            lSR = np.log10(Size_Ratio)
-            f = plt.figure()
-            ax = plt.gca()
-            n, bins, patches = ax.hist(lSR, bins=40)
-            gmm = deconstruct_size_ratios(lSR, min_detectable_contamination)
-            stats = pd.DataFrame(dict(means=gmm.means_.flatten(), weights=gmm.weights_.flatten(), stds=np.sqrt(gmm.covariances_.flatten())))
-            bic = gmm.bic(lSR.reshape(-1, 1))
-            print(contaminator.name, contaminant.name, 'BIC: {:.1}'.format(bic))
-            print(stats.to_string(float_format='{:.2}'.format))
-            X = np.linspace(bins[0], bins[-1], 400)
-            Y = np.exp(gmm.score_samples(X.reshape(-1, 1)).flatten())
-            Y /= Y.max()/n.max()
-            ax.plot(X, Y, 'r-') 
-            plt.savefig('{:}_{:}.pdf'.format(contaminator.name, contaminant.name), format='pdf', bbox_inches='tight')
-        return pd.Series({
-            'Fraction_of_Reads'        : M.loc[overlap, contaminant.name].mean() / M.loc[overlap, contaminator.name].mean(),
-            'Overlapping_Barcodes'     : overlap.sum(),
-            'Expected_Barcode_Overlap' : conditional_barcode_freq.loc[contaminator].sum()*contaminant_BCs.loc[contaminant.name]/mean_BCs,
-            'N_contaminant'            : contaminant.sum(), 
-            'N_contaminator'           : contaminator.sum()})
-        
-    df = pd.DataFrame({(name_ator, name_ant):find_contaminants(contaminator, contaminant) for name_ator, contaminator in contaminators.iteritems() for name_ant, contaminant in contaminants.iteritems() if name_ator != name_ant}).T
-    df.index.names = ['Contaminator', 'Contaminant']
-    return df
+    mean_contaminants = contaminant_BCs.mean()
+    contamination_propensity = (conditional_barcode_freq*contaminators.T).sum(axis=1)
+    df = pd.DataFrame({
+        'Overlapping Barcodes'     : contaminators.T.dot(contaminants.astype(int)).stack(),
+        'Expected Barcode Overlap' : contamination_propensity.apply(lambda x: x*contaminant_BCs/mean_contaminants).stack()})
 
+    df.index.names = ['Contaminator', 'Contaminant']
+    df = df.query('Contaminator != Contaminant')
+    #from statsmodels.formula.api import ols
+    #regression = ols("Overlapping_Barcodes ~ Expected_Barcode_Overlap + N_contaminant + N_contaminator", data=df).fit()
+    #print(regression.summary())
+    #df['Empirical_Expected_Barcode_Overlap'] = regression.predict()
+    df.insert(0, 'P-value', df.apply(lambda row: poisson.cdf(row['Expected Barcode Overlap'], row['Overlapping Barcodes']) , axis=1))
     m = N_mice*(N_mice - 1)
-    print(df)
-    df['p_value'] = df.apply(lambda row: poisson.cdf(row['Expected_Barcode_Overlap'], row['Overlapping_Barcodes']) , axis=1)
-    df['FWER'] = df['p_value'].apply(lambda p: min(0.5, p*m))
-    regression = ols("Overlaping_Barcodes ~ Expected_Barcode_Overlap", data=df).fit()
-    print(regression.summary())
-    out = regression.outlier_test(method='sidak', alpha=alpha)
-    #out.index.names = ['is contaminated by']
-    #out.columns.names = ['Statistic']
-    #out['p_value'] = out['unadj_p']*m
-    #return out.query('student_resid > 1 and Size_Ratio > 1 and FWER < '+str(alpha))[['FWER', 'Size_Ratio', "Overlapping_Barcodes", 'Expected_Barcode_Overlap']]
-    return out.query('Fraction_of_Reads < 1 and FWER < '+str(alpha))[['FWER', 'Fraction_of_Reads', "Overlapping_Barcodes", 'Expected_Barcode_Overlap']]
+    df.insert(0, 'FWER', df['P-value'].apply(lambda p: min(0.5, p*m)))
+    contaminations = df.query('FWER < @alpha')
+    print('{:.1%} ({:} sample pairs) have anomalously-high fractions of overlapping-barcodes...'.format(
+          len(contaminations)/len(df), len(contaminations)))
+    
+    ix = contaminations.index
+    overlaps = (contaminants[ix.get_level_values('Contaminant')].values&contaminators[ix.get_level_values("Contaminator")].values)
+    
+    contaminations.insert(0, "Size Ratios", [(M.loc[overlap, contaminator]/M.loc[overlap, contaminant]).loc[lambda x: x >= min_size_ratio] for (contaminator, contaminant), overlap in zip(ix, overlaps.T)])
+    from functools import partial
+    f = partial(deconstruct_size_ratios, min_detectable_contamination=min_detectable_contamination)
+    
+    
+    
+    outputs = pd.DataFrame(map(f, contaminations['Size Ratios']), index=ix)
+    transform = outputs.pop('transform').values[0] 
+    final = pd.concat([contaminations, outputs], axis=1)
+    final = final.loc[final.pop('isContamination')]
+    
+    if graph_contaminations: 
+        Max = final['Size Ratios'].apply(max).max()
+        bins = np.geomspace(min_size_ratio, Max, 50)
+        X = np.geomspace(min_size_ratio, Max, 400)
+        with sns.axes_style('white'):
+            L = len(contaminations)
+            graph_rows = int(np.ceil(L/graph_columns))
+            f, axs = plt.subplots(graph_rows, graph_columns, sharex=True, sharey=True, figsize=(graph_rows*4, graph_columns*4))
+            axs = axs.flatten()
+            for ax, (ix, row) in zip(axs.flatten(), final.iterrows()):
+                n, __, patches = ax.hist(row['Size Ratios'], bins=bins)
+                Y = np.exp(row['GMM'].score_samples(transform(X).reshape(-1, 1)).flatten())
+                Y /= Y.max()/n.max()
+                ax.plot(X, Y, 'r-')
+                ax.set_title('{:} / {:}'.format(*ix))
+            ax.set_xscale('log')
+            ax.set(ylabel='# of Overlapping Barcodes', xlabel='Ratio of barcode abundances')
+            plt.savefig('contaminations_GMM.pdf', format='pdf', bbox_inches='tight')
+    
+    return final.drop(['stats', 'Size Ratios', 'GMM'], axis=1)
 
 def barcode_diversity(tumor_numbers, plot=True):
     sns.set_style('whitegrid')

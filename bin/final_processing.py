@@ -22,6 +22,7 @@ IO_group.add_argument('-b', '--bartender', action='store_true', help='Process Ba
 IO_group.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 IO_group.add_argument('-s', '--spike_barcodes', nargs='+', default='infer', help='Barcodes present in the spiked-in benchmark barcodes')
 IO_group.add_argument('--report', action='store_true', help='Graph the best-fitting model of GC bias, and provide a report on Barcode Diversity & potential contaminations.')
+IO_group.add_argument('--contamination_threshold', type=float,default=0.05, help='Minimum fraction of contaminating barcodes to investigate.')
 
 OP_group = parser.add_argument_group('OP', 'Optional arguments affecting operation')
 OP_group.add_argument('--final_filter', default='(Concentration >= 1 and Cells >= 500) or Cells >= 5000', help='Final barcode filter')
@@ -99,7 +100,7 @@ if args.report:
     xrange_GCs = xrange_frac*barcode_length
     keep = (xrange_GCs > X_lim.iloc[0])&(xrange_GCs < X_lim.iloc[1])
     ax.xaxis.set_ticks(xrange_GCs[keep] - x[0])
-    ax.xaxis.set_ticklabels(list(map(str, xrange_frac[keep])))
+    ax.xaxis.set_ticklabels(list(map('{:.0%}'.format, xrange_frac[keep])))
     plt.savefig("Quality_of_GC_fit", transparent=True, bbox_inches='tight')
 
     
@@ -152,8 +153,7 @@ tumors = tumor_df.set_index(["Sample", 'target', 'barcode'])["Cells"]
 
 if args.report:
     Log("Graphing the dversity of barcodes...")
-    barcode_diversity(tumors)
-    contaminants = contamination(tumors) 
+    contaminants = contamination(tumors, min_detectable_contamination=args.contamination_threshold, map=map) 
     if len(contaminants) == 0:
         Log("Found no evidence of cross-contamination of samples.", True)
     else:
@@ -166,4 +166,5 @@ samples in this library suggesting cross-contamination of the following samples:
 Directionality of contamination is inferred by the `Size Ratio` of overlapping
 barcodes, i.e. the contamination volume should be smaller than its original 
 sample. This may be an unreliable assumption.""", True)
+    barcode_diversity(tumors)
 

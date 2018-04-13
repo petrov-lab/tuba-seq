@@ -17,7 +17,6 @@ parser.add_argument("-v", "--verbose", help='Output more Info', action="store_tr
 parser.add_argument('-p', '--parallel', dest='parallel', action='store_true', help='Parallelize operation.')
 parser.add_argument('--indel_tolerated', type=int, default=2, help='Size of indel tolerated when attempting to annotate the sgID.')
 parser.add_argument('--substitutions_tolerated', type=int, default=1, help='Number of substitutions tolerated when attempting to annotate the sgID.')
-#parser.add_argument('--master_read', type=str, default='', help='Read outline to expect.')
 parser.add_argument('--flank', type=int, default=4, help='Expected beginning and end length of reads.')
 
 args = parser.parse_args()
@@ -85,17 +84,6 @@ file. Tolerates a single mismatch and small indel when searching for the sgID.
         row['target'] = "Unknown" 
     return row
 
-def infer_master_read(DNAs, max_random_base_frequency=0.667):
-    counts = pd.DataFrame({i:DNAs.str.get(i).value_counts() for i in range(len(DNAs[0]))})
-    PWM = counts/counts.loc[['A', 'C', 'G', 'T']].sum()
-    master_read = ''.join(PWM.apply(lambda col: col.idxmax() if col.max() > max_random_base_frequency else 'N'))
-    for ID in sg_info['ID']:
-        if ID in master_read: 
-            begin, ID, end = master_read.partition(ID)
-            master_read = begin + len(ID)*'N' + end
-    assert len(master_read.partition('N')[0]) == len(master_read.rpartition('N')[2]), "Inferred master read has uneven flanks:\n"+master_read+PWM.to_string()
-    return master_read
-
 def load_clusters_annotate_sgRNAs_and_merge(filename):
     """load_clusters_annotate_sgRNAs_and_merge(filename) -> dict with output & stats.
 
@@ -103,10 +91,8 @@ This function combines the loading, annotation, and merging steps to permit para
 """
     sample = filename.name.partition('.')[0]
     df = read_input(filename)
-        # Immediately trim sequences down to the maximum indel tolerated. 
-    #master_read = infer_master_read(df['sequence'][:10000])
-    start = args.flank#master_read.index("N")
-    stop = len(df['sequence'].iloc[0]) - args.flank #master_read.rindex("N")+1
+    start = args.flank
+    stop = len(df['sequence'].iloc[0]) - args.flank 
     flanking_seq_length = start
     barcode_length = stop - start
         # First, annotate all sgRNAs/barcodes that are exact matches to an sgID in the exact location
@@ -127,8 +113,7 @@ This function combines the loading, annotation, and merging steps to permit para
                 initial=len(df),
                 clusters=merged, 
                 exact_matches=len(df) - failed_matches.sum(), 
-                merges=len(df) - len(merged)) #,
-#                master_read=master_read)
+                merges=len(df) - len(merged)) 
 
 Files = list(args.directory.glob(file_glob))
 clustered_samples = map(load_clusters_annotate_sgRNAs_and_merge, Files)
