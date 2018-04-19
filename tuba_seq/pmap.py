@@ -64,11 +64,13 @@ class _mid_fastq_iter(object):
         self.f = self.filename.open('rb')
         self.f.seek(self.start)
         # Find the beginning of the next FASTQ header
+        lines = []
         for i, line in zip(range(5), self.f):
+            lines.append(line)
             if line.startswith(self.seq_id):
                 break
         else:
-            raise RuntimeError("Took more than 4 lines to find header in middle of FASTQ file.")
+            raise RuntimeError("Took more than 4 lines to find header in middle of FASTQ file:\n"+'\n'.join(lines))
         self.f.seek(self.f.tell() - len(line))
         return self
         
