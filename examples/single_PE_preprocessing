@@ -16,8 +16,8 @@ TALLY_DIR="mutation_tallies"
 cd $DATA_DIR;
 SAMPLE=${FILE%.fastq*}
 echo "Processing $FILE"
-#$TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
-$TUBA_PATH/preprocess.py --search_blast -f=0.05 --single --symmetric_flanks -d $MERGE_DIR/$SAMPLE.fastq;
+$TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
+$TUBA_PATH/preprocess.py -p --search_blast -f=0.05 --single --symmetric_flanks -d $MERGE_DIR/$SAMPLE.fastq;
 
 set +x
 echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";

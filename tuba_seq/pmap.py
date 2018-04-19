@@ -61,10 +61,10 @@ class _mid_fastq_iter(object):
         self.stop = stop
 
     def __iter__(self): 
-        self.f = open(self.filename, 'rb')
+        self.f = self.filename.open('rb')
         self.f.seek(self.start)
         # Find the beginning of the next FASTQ header
-        for i, line in zip(range(4), self.f):
+        for i, line in zip(range(5), self.f):
             if line.startswith(self.seq_id):
                 break
         else:
@@ -73,7 +73,7 @@ class _mid_fastq_iter(object):
         return self
         
     def __next__(self):
-        if self.f.tell() <= self.stop:
+        if self.f.tell() < self.stop:
             header = self.f.readline()
             dna = self.f.readline()
             self.f.readline()
@@ -88,7 +88,8 @@ class _mid_fastq_iter(object):
 
 compressions = dict(gzip='gunzip',gz='gunzip', bz2='bunzip2', lzma='unxz', xz='unxz') 
 
-def fastq_map_sum(in_fastq, out_filenames, func, CPUs=CPUs-1, temp_dir='tmp', uncompress_input=True):
+from pathlib import Path
+def fastq_map_sum(in_fastq, out_filenames, func, CPUs=CPUs-1, temp_dir_prefix='tmp', uncompress_input=True):
     """Asynchronously processes an input fastq file.
 
 Processes reads from a single FASTQ file by distributing the analysis work *and*
@@ -105,28 +106,31 @@ out_files : List of output filenames. Compression must be smart_open compliant.
 func : func(fastq_read_iter, out_filenames) -> tuple of sum-able objects. 
 
 """
-    basename = in_ext = os.path.splitext(in_fastq)[1:]
-    if in_ext in compressions and uncompress_input:
+    in_file = Path(in_fastq)
+    
+    if in_file.suffix in compressions and uncompress_input:
         algorithm = compressions[in_ext]
         print("Uncompressing", in_fastq, 'with', algorithm, "(Cannot parallel-process a compressed file)...")
         os.system([algorithm, in_fastq])
-        in_fastq = basename
-    
-    with open(in_fastq, 'rb') as f:
-        seq_id = f.readline().partition(':'.encode('ascii'))[0]
-        file_length = f.seek(0, 2)
+        in_file = Path(in_file.stem)
+
+    file_length = in_file.stat().st_size
     
     start_positions = np.linspace(0, file_length, CHUNKS, False).round().astype(int)
-    stop_positions = np.r_[start_positions[1:], file_length - 1]
+    stop_positions = np.r_[start_positions[1:], file_length]
+     
+    sample = in_file.name.partition('.fastq')[0]
     
-    sample = os.path.basename(in_fastq).partition('.fastq')[0]
-    # Make temp dir 
-    Dir = temp_dir+sample
-    Iter = [(_mid_fastq_iter(in_fastq, seq_id, start, stop), [os.path.join(Dir, head, str(start)+tail) for head, tail in map(os.path.split, out_filenames)]) for start, stop in zip(start_positions, stop_positions)]
+    Dir = Path(temp_dir_prefix+sample)
+
+    with in_file.open('rb') as f:
+          seq_id = f.readline().partition(':'.encode('ascii'))[0]
+    
+    Iter = [(_mid_fastq_iter(in_file, seq_id, start, stop), [str(Dir / head / (str(start)+tail)) for head, tail in map(os.path.split, out_filenames)]) for start, stop in zip(start_positions, stop_positions)]
     
     for head, tail in map(os.path.split, out_filenames):
-        os.makedirs(os.path.join(Dir, head))
         os.makedirs(head, exist_ok=True)
+        (Dir / head).mkdir(parents=True, exist_ok=True)
 
     with multiprocessing.Pool(processes=CPUs) as P:
         rs = P.starmap_async(func, Iter, chunksize=1)
@@ -134,8 +138,9 @@ func : func(fastq_read_iter, out_filenames) -> tuple of sum-able objects.
     intermediate_files = list(zip(*[outfiles for it, outfiles in Iter]))
     for f, i_files in zip(out_filenames, intermediate_files):
         os.system("cat "+' '.join(i_files)+" >> "+f)
-        list(map(os.remove, i_files))
-        os.rmdir(os.path.join(Dir, os.path.split(f)[0]))
-    os.rmdir(Dir)
+        for File in i_files:
+            os.remove(File)
+        (Dir / f).parent.rmdir()
+    Dir.rmdir()
     return list(map(sum, zip(*outputs))) if type(outputs[0]) == tuple else sum(outputs)
 
