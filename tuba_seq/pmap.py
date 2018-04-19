@@ -70,7 +70,8 @@ class _mid_fastq_iter(object):
             if line.startswith(self.seq_id):
                 break
         else:
-            raise RuntimeError("Took more than 4 lines to find header in middle of FASTQ file:\n"+'\n'.join(lines))
+            raise RuntimeError("Took more than 4 lines to find header in middle of FASTQ file (start pos: {:}, stop pos: {:}, file length: {:}):\n".format(
+                                    self.start, self.stop, self.filename.stat().st_size)+'\n'.join(lines))
         self.f.seek(self.f.tell() - len(line))
         return self
         
