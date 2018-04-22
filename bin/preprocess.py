@@ -21,13 +21,11 @@ parser = argparse.ArgumentParser(description="Prepare FASTQ files for DADA train
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('input_dir', type=str, help='Input directory with fastq files.') 
-parser.add_argument('--single', action='store_true', help='Analyze single FASTQ file; The positional argument should be a *file*, not a directory.')
 parser.add_argument('--master_read', type=str, default=default_master_read, 
     help="Outline of the amplicon sequence, degenerate bases can be either 'N' or '.'. --trim and --symmetric_flanks depend on this being the full length FASTQ sequence that you expect after merging reads.")
 parser.add_argument('-t', '--training_dir', default='training', help='Directory to save files for error training.') 
 parser.add_argument('-o', '--output_dir', default='preprocessed', help='Directory to save files for barcode clustering.') 
 parser.add_argument('-u', '--unaligned_dir', default='unaligned', help='Directory to save unaligned reads')
-#parser.add_argument('-m', '--mutation_dir', default='mutations', help='Directory to save mutation tally files.')
 parser.add_argument("-v", "--verbose", help='Output more', action="store_true")
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
 parser.add_argument('-s', '--search_blast', action='store_true', help='Use NCBI BLAST algorithm to identify contaminations in samples')
@@ -52,26 +50,27 @@ master_read = MasterRead(args.master_read, args)
 dada2 = importr("dada2")
 R_base = importr('base')
 
+single_file = '.fastq' in args.input_dir
+
 compression = '' if args.derep or args.compression == 'none' else '.'+args.compression
 
-if args.parallel and not args.single:
+if args.parallel and not single_file:
     from tuba_seq.pmap import pmap as map
 
-input_fastqs = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if fastq_ext in f] if not args.single else [args.input_dir]
+input_fastqs = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if fastq_ext in f] if not single_file else [args.input_dir]
 
 def get_instrument(filename):
     with smart_open(filename) as f: 
         return f.readline().decode('ascii').split(':')[0]
 
 instruments = pd.Series({input_fastq:get_instrument(input_fastq) for input_fastq in input_fastqs})
-#os.makedirs(args.mutation_dir, exist_ok=True)
 
 if len(instruments.value_counts()) > 1:
     Log("{input_dir} contains fastq files from different Illumina machines. This is not recommended.", True)
     Log(instruments, True)
     sys.exit()
 
-if not args.single:
+if not single_file:
     Log('Processing {:} samples found in {:}.'.format(len(input_fastqs), args.input_dir), True)
 
 def process_fastq(ix):
@@ -83,7 +82,7 @@ def process_fastq(ix):
         Log(sample+" already exists, skipping...")
         return 
     
-    if args.parallel and args.single:
+    if args.parallel and single_file:
         from tuba_seq.pmap import fastq_map_sum
         outcomes, scores = fastq_map_sum(input_fastq, output_files, master_read.iter_fastq)
     else:
@@ -98,11 +97,6 @@ def process_fastq(ix):
         list(map(os.remove, output_files))
         return 
 
-    #mut_df = pd.DataFrame(data=mutations.reshape(6*5, -1),
-    #    index=pd.MultiIndex.from_tuples([(From, To) for From in 'ATCGN-' for To in 'ATCGN'], names=['From', 'To']))
-    #assert mut_df.loc['N'].sum().sum() == 0, 'Reference Sequence should not have N bases.'
-    #mut_df.query("From != 'N'").to_csv(os.path.join(args.mutation_dir,sample+'.csv'))
-    
     if args.derep:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore") 
