@@ -29,8 +29,7 @@
 ############################### I/O Options ###################################
 in.directory <- "preprocessed"
 out.directory <- "clustered"
-#training.filename <- "trainingDADA.rds"
-training.filename <- "/home/chris/data/ann/fullTransitionMatrix.csv"
+training.filename <- "trainingDADA.rds"
 overwrite.existing.file <- FALSE
 
 ############## IMPORTANT CLUSTERING DADA2 OPTIONS #############################
