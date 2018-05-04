@@ -4,7 +4,7 @@ set -ex
 TUBA_PATH="$HOME/tuba-seq/bin"
 DATA_DIR=`pwd` 
 
-$TUBA_PATH/preprocess.py -p -s --symmetric_flanks --trim=5 -d $DATA_DIR/original/;
+$TUBA_PATH/preprocess.py -p -s -d $DATA_DIR/original/;
 $TUBA_PATH/DADA2_error_training.R $DATA_DIR/training/ >> DADA2_error_training.LOG;
 
 set +x

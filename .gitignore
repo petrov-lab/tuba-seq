@@ -7,6 +7,9 @@ examples/unaligned/*
 examples/preprocessed/*
 examples/training/*
 examples/mutations/*
+Complete-Striped-Smith-Waterman-Library/src/*.so
+Complete-Striped-Smith-Waterman-Library/src/*.o
+
 
 # Extras #
 ##########

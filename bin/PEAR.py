@@ -34,8 +34,8 @@ if single_file:
 You must either give single FASTQ files to this program or entire directories."""
 
 if not single_file:
-    forward_files = {f for f in os.listdir(args.forward_reads) if fastq_ext in f}
-    reverse_files = {f for f in os.listdir(args.reverse_reads) if fastq_ext in f}
+    forward_files = {f for f in os.listdir(args.forward_reads) if f[-len(fastq_ext):] == fastq_ext}
+    reverse_files = {f for f in os.listdir(args.reverse_reads) if f[-len(fastq_ext):] == fastq_ext}
 
     matches = forward_files & reverse_files
     Log("Found {:} matching files.".format(len(matches)))
@@ -68,6 +68,7 @@ suffixes = {'discarded', 'unassembled.forward', 'unassembled.reverse'}
 for File in matches:
     sample = File.split(fastq_ext)[0]
     output_file = os.path.join(args.merge_dir, sample)
+        
     options = { '-f':os.path.join(args.forward_reads, File),
                 '-r':os.path.join(args.reverse_reads, File),
                 '-o':output_file,

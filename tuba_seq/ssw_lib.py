@@ -86,6 +86,8 @@ class CProfile(ct.Structure):
                 ('nN', ct.c_int32),
                 ('nBias', ct.c_uint8)]
 
+from pathlib import Path
+default_ssw_lib_path = Path.home() / 'tuba-seq/Complete-Striped-Smith-Waterman-Library/src'
 class CSsw(object):
     """
     A class for libssw
@@ -106,7 +108,7 @@ class CSsw(object):
         else:
 # otherwise just search in PATH
             bFound = False
-            for s in sys.path:
+            for s in [str(default_ssw_lib_path)] + sys.path:
                 if op.exists(op.join(s,sLibName)):
                     bFound = True
                     self.ssw = ct.cdll.LoadLibrary(op.join(s,sLibName))
