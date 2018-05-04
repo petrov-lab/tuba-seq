@@ -39,8 +39,7 @@ parser.add_argument('--alignment_flank', type=int, default=22, help='# of bases 
 parser.add_argument('--training_flank', type=int, default=22, help='# of bases flanking the degenerate region to be used to develop the DADA2 error model.')
 parser.add_argument('-M', '--min_align_score', type=float, default=0.65, help='Minimum alignment score needed to keep read, Range [0, 1).')
 parser.add_argument('--compression', default='bz2', choices=['bz2', 'gz', 'lzma', 'none'], help='Compression algorithm for saved file.')
-parser.add_argument('--symmetric_flanks', action='store_true', help='Automatically symmetrizes the length of the forward and aft flanks to the barcode--saves memory/time.')
-parser.add_argument('--trim', type=int, default=8, help='Trim reads by specified length on both flanks--works with --symmetric_flanks.')
+parser.add_argument('--trim', default='symmetric', help='Nucleotides to immediately trim from the amplicon reads before searching for the barcode--trimming accelerates runtime. Can be two integers--a start and stop position, `none`, or `symmetric`, which truncates the read such that the barcode is exactly in the middle of the read.')
 ###############################################################################
 args = parser.parse_args()
 Log = logPrint(args)
@@ -84,16 +83,15 @@ def process_fastq(ix):
     
     if args.parallel and single_file:
         from tuba_seq.pmap import fastq_map_sum
-        outcomes, scores = fastq_map_sum(input_fastq, output_files, master_read.iter_fastq)
+        outcomes, scores, bad_lengths = fastq_map_sum(input_fastq, output_files, master_read.iter_fastq)
     else:
         from tuba_seq.fastq import IterFASTQ
-        outcomes, scores = master_read.iter_fastq(IterFASTQ(input_fastq), output_files)
-
+        outcomes, scores, bad_lengths = master_read.iter_fastq(IterFASTQ(input_fastq), output_files)
     reads = outcomes.sum()
     Log('Sample {:} ({:.2f}M Reads): '.format(sample, reads*1e-6)+
         ','.join(['{:.1%} {:}'.format(num/reads, name) for name, num in outcomes.iteritems() if num > 0])+'.')
     if outcomes['Clustered'] == 0:
-        Log('There were no passable reads in {:}. Deleting output files...', True)
+        Log('There were no passable reads in {:}. Deleting output files...'.format(input_fastq), True)
         list(map(os.remove, output_files))
         return 
 
@@ -109,7 +107,7 @@ def process_fastq(ix):
                     Log("Could not derep {:}:\n{:}".format(f, e), True)
                 else:
                  os.remove(f)
-    return outcomes, scores
+    return outcomes, scores, bad_lengths
 
 samples = [os.path.basename(input_fastq.partition(fastq_ext)[0]) for input_fastq in input_fastqs]
 fastq_outputs = [[os.path.join(Dir, sample+fastq_ext+compression) for Dir in [args.training_dir, args.output_dir]] for sample in samples]
@@ -120,8 +118,7 @@ if not outputs:
     Log("No files were processed.")
     sys.exit()
 
-outcome_totals, score_totals = [sum(output_set) for output_set in zip(*outputs)]
-
+outcome_totals, score_totals, bad_barcode_length_totals = [sum(output_set) for output_set in zip(*outputs)]
 total_reads = outcome_totals.sum()
 
 if args.search_blast:  
@@ -147,16 +144,27 @@ if args.search_blast:
                 Log("{short_title:<60} {e:1.0e}    {:.2%}".format(unknown_DNAs[dna], **row),True)
 
 try:
-    from tuba_seq.graphs import plt
+    from tuba_seq.graphs import plt, text_color_legend
     ax = plt.gca()
-    ax.hist(numpy.arange(len(score_totals)), weights=score_totals, bins=numpy.linspace(0, 1, 40))
-    ax.axvline(args.min_align_score, color='k', linestyle='dashed')
-    ax.set(xlabel='Alignment Score', ylabel='Observations')
+    bar_width = score_totals.index.values[1]
+    removed = score_totals[score_totals.index < args.min_align_score]
+    passed = score_totals[score_totals.index >= args.min_align_score]
+    ax.bar(passed.index.values, passed.values, bar_width, label='Passed Alignment Filter')
+    ax.bar(removed.index.values, removed.values, bar_width, label='Failed Alignment Filter')
+    text_color_legend(ax, bbox_to_anchor=(0, 1), loc='upper left')
+    ax.set(xlabel='Alignment Score', ylabel=score_totals.name, xlim=[0, 1+bar_width/2])
     plt.savefig(histogram_filename)
 except Exception as e:
     print("Couldn't create alignment score histogram, perhaps you need to configure the matplotlib backend?")
     print(e)
 
+
 Log("Summary of the {:.2f}M processed reads in {:}:".format(total_reads*1e-6, args.input_dir), True, header=True)
 Log((outcome_totals/total_reads).to_string(float_format='{:.2%}'.format), True)
+
+bad_lengths = bad_barcode_length_totals.sum()
+if bad_lengths > 0:
+    Log("Most common bad barcode length: {:} ({:.0%} of all bad lengths)".format(bad_barcode_length_totals.idxmax(), bad_barcode_length_totals.max()/bad_lengths), True)
+
+
 

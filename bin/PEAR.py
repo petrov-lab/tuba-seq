@@ -4,45 +4,22 @@ import argparse
 import os
 from subprocess import Popen, PIPE
 import pandas as pd
-from tuba_seq.fastq import fastqDF
 from tuba_seq.shared import logPrint
 from tuba_seq.pmap import CPUs
 
 parser = argparse.ArgumentParser(description="Run PEAR (Illumina Paired-End reAd mergerR) on all forward and reverse fastq files.",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("forward_read_dir", help="Directory containing forward read files.")
-parser.add_argument("reverse_read_dir", help="Directory containing reverse read files (will be mated by sample name).")
-parser.add_argument('-s', '--single', action='store_true', help='Use in single-FASTQ mode. First two arguments refer to a single file')
+parser.add_argument("forward_reads", help="Directory containing forward read files.")
+parser.add_argument("reverse_reads", help="Directory containing reverse read files (will be mated by sample name).")
 parser.add_argument("-m", '--merge_dir', default='merged_reads', help="Directory to saved merged fastq files")
 parser.add_argument("-v", "--verbose", help='Output more Info', action="store_true")
 parser.add_argument('-p', '--parallel', action='store_true', help='Multi-threaded operation')
 parser.add_argument('-c', '--cmd', default='pear', help='Name of PEAR PATH/executable.')
-parser.add_argument('-u', '--uncompressed', action='store_true', help='Avoid PHRED compression.')
 parser.add_argument('-k', '--keep', action='store_true', help='Keep unassembled read files.')
 parser.add_argument('-n', '--min_length', type=int, help="Minimum length for a merged sequence.", 
     default=(22*2)+29) #Default = minimum length necessary for successful preprocessing, under default conditions.  
 parser.add_argument('--memory', type=str, default='16G', help='Memory to use. K,M,G are possible suffixes.')
-
-# When merging paired-end reads, a combined PHRED score must be assigned to each
-# nucleotide. From the trained error model, we can adjudicate whether the combined 
-# PHRED score faithfully describes the true error rate. For example, a combined
-# PHRED score of 40 *ought* to yield the expected base 99.99% of the time. PEAR 
-# simply adds PHRED scores and appears to be too aggressive, i.e. a PHRED score 
-# of 40 is correct <99.99% of the time. Thus, the PHRED scores are compressed:
-# PHRED scores 1-60 are divided by three, while PHRED scores 
-# above 60 are not compressed, but reduced by 40--to generate an uninterrupted 
-# mapping. DADA2 is designed to automatically determine the true error rate of 
-# each PHRED score, so none of this matters too much; however, DADA2 makes a 
-# linear assumption during read-dereping that is inappropriate when the true 
-# error rate and reported error rates disagree by several decades--as they will 
-# if the PHRED scores aren't (crudely) compressed. 
-
-ASCII_BASE = 33
-attenuation_rate = 3
-attenuation_cap = 60
-max_attenuated = int(attenuation_cap/attenuation_rate)
-max_PHRED = ASCII_BASE + 94
-PHRED_compressor = {ASCII_BASE + i:(ASCII_BASE + int(i/attenuation_rate)) if i < attenuation_cap else (ASCII_BASE + i - attenuation_cap + max_attenuated) for i in range(max_PHRED)}
+parser.add_argument('--max_PHRED', type=int, default=72, help='Maximum PHRED score allowed.')
 
 fastq_ext = '.fastq'
 
@@ -50,9 +27,15 @@ args = parser.parse_args()
 Log = logPrint(args)
 
 os.makedirs(args.merge_dir, exist_ok=True)
-if not args.single:
-    forward_files = {f for f in os.listdir(args.forward_read_dir) if fastq_ext in f}
-    reverse_files = {f for f in os.listdir(args.reverse_read_dir) if fastq_ext in f}
+
+single_file = '.fastq' in args.forward_reads
+if single_file:
+    assert '.fastq' in args.reverse_reads, """First argument is a single FASTQ file; however, the second argument isn't a FASTQ file. 
+You must either give single FASTQ files to this program or entire directories."""
+
+if not single_file:
+    forward_files = {f for f in os.listdir(args.forward_reads) if fastq_ext in f}
+    reverse_files = {f for f in os.listdir(args.reverse_reads) if fastq_ext in f}
 
     matches = forward_files & reverse_files
     Log("Found {:} matching files.".format(len(matches)))
@@ -72,25 +55,25 @@ if not args.single:
             for f in reverse_only:
                 Log(forward_only)
 else:
-    args.forward_read_dir, File = os.path.split(args.forward_read_dir)
-    args.reverse_read_dir, reverse_file = os.path.split(args.reverse_read_dir)
+    args.forward_reads, File = os.path.split(args.forward_reads)
+    args.reverse_reads, reverse_file = os.path.split(args.reverse_reads)
     assert reverse_file == File, 'Forward & Reverse files must have the same basename.'
     matches = [File]
 
 stats = {'Assembled reads', 'Discarded reads', 'Not assembled reads'}
 tallies = dict()
 
-suffixes = {'discarded', 'unassembled.forward', 'unassembled.reverse'} | (set() if args.uncompressed else {'assembled'})
+suffixes = {'discarded', 'unassembled.forward', 'unassembled.reverse'} 
 
 for File in matches:
     sample = File.split(fastq_ext)[0]
     output_file = os.path.join(args.merge_dir, sample)
-    options = { '-f':os.path.join(args.forward_read_dir, File),
-                '-r':os.path.join(args.reverse_read_dir, File),
+    options = { '-f':os.path.join(args.forward_reads, File),
+                '-r':os.path.join(args.reverse_reads, File),
                 '-o':output_file,
                 '-n':args.min_length,
                 '-j':CPUs if args.parallel else 1,  # No. of threads to use
-                '-c':max_PHRED,
+                '-c':args.max_PHRED,
                 '-y':args.memory}                             
     
     command = [args.cmd]+[str(s) for item in options.items() for s in item]
@@ -99,12 +82,7 @@ for File in matches:
     tallies[sample] = pd.Series({stat:int(line.partition(':')[2].partition('/')[0].replace(',', '')) 
                         for line in output.splitlines() for stat in stats if stat+' ...' in line}, name='Totals')
     
-    if args.uncompressed:
-        os.rename(output_file+'.assembled.fastq', output_file+'.fastq')
-    else:
-        reads = fastqDF.from_file(output_file+".assembled.fastq", fake_header=False, use_Illumina_filter=False)
-        reads['QC'] = reads['QC'].str.translate(PHRED_compressor)
-        reads.write(output_file)
+    os.rename(output_file+'.assembled.fastq', output_file+'.fastq')
     if not args.keep:
         for suffix in suffixes:
             os.remove('{:}.{:}.fastq'.format(output_file, suffix))

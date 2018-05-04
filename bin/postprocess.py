@@ -51,7 +51,7 @@ elif args.input == 'derep':
     file_glob = '*.rds'
 
 sg_info = pd.read_csv(args.sgRNA_file)
-sg_info['ID'] = sg_info['ID'].str.upper()
+sg_info['ID'] = sg_info['ID'].fillna('').str.upper()
 
 sgID_lengths = sg_info['ID'].str.len()
 sgID_length = sgID_lengths.values[0]
@@ -141,7 +141,7 @@ data = pd.DataFrame(clustered_samples).set_index("Sample")
 
 ######################### Summary Statistics ###################################
 tallies = data.sum()
-tallies['unknown_RNA'] = len(combined.loc[(slice(None), 'Unknown'), :]) 
+tallies['unknown_RNA'] = len(combined.query('target == "Unknown"'))
 percents = tallies/tallies.loc['initial']
 Log("""{exact_matches:.2%} of DADA2 clusters perfectly matched an sgID.
 {unknown_RNA:.2%} of clusters had an Unknown sgID.

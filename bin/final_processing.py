@@ -108,8 +108,6 @@ if args.report:
 predictor = pd.Series(model.predict(), index=data.index)
 
 predictions = predictor.loc[residual.index.get_level_values('GCs')].values
-#predictions2 = predictor.reindex(residual.index.get_level_values('GCs')).values
-#assert (predictions == predictions2).all()
 clean.insert(0, 'GC_corrected', Y - predictions if args.linear else np.exp(Y - predictions))
 
 ################# Calculate Absolute Cell Number & final Statistics ###########
@@ -140,7 +138,6 @@ final.insert(0, 'pass_filter', final.eval(args.final_filter))
 final.insert(0, 'false_positive', final.eval('target == "Spike" and pass_filter and not barcode in @spike_barcodes'))
 
 # Output 
-
 false_positives = final['false_positive'].sum()
 FDR = false_positives/(false_positives + len(true_spikes))
 

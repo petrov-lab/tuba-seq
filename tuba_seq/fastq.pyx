@@ -114,11 +114,9 @@ class fastqDF(pd.DataFrame):
         s = self.info['Fake Header']+'\n'+dna+'\n+\n'
         return (s+('\n'+s).join(QCs)+'\n').encode('ascii')
 
-NW_kwargs = dict(match=6, mismatch=-3, gap_open=-12, gap_extend=-1)
-
-from seq_align import NW
-nw = NW(**NW_kwargs)
-nw.add_neutral_N()
+NW_kwargs = dict(match=2, mismatch=1, gap_open=3, gap_extend=1)
+from striped_smith_waterman import SW
+sw = SW(**NW_kwargs)
 
 def cprint(s): print(s.decode('ascii'))
 
@@ -158,9 +156,10 @@ cdef:
 for i, nuc in enumerate(b'ACGTN-'):
     DNA_to_int[nuc] = i
 
+
 class MasterRead(object):
     possible_outcomes = ['Filtered', 'Unaligned', 'Wrong Barcode Length', 'Residual N', 'Insufficient Flank', 'Clustered']
-    max_PHRED = 90
+    MAX_READ_LENGTH = 300
 
     def __init__(self, master_read, args):
         self.alignment_flank = args.alignment_flank
@@ -175,56 +174,29 @@ class MasterRead(object):
         self.ref = self.full[start - self.alignment_flank:stop+self.alignment_flank]
         
         aft_length = len(self.full) - stop
-        
-        self.trim = min(args.trim, start - self.alignment_flank, aft_length - self.alignment_flank)
-        if self.trim < 0:
-            raise RuntimeError("The master read's flanks are shorter than `alignment_flank`")
-            
-        if args.symmetric_flanks:
-            self.pre_slice = slice(self.trim + start - aft_length, len(self.full) - self.trim) if start > aft_length else slice(self.trim, len(self.full) - self.trim - aft_length + start)
+        full_length = len(self.full)
+
+        if args.trim == 'symmetric':
+            self.pre_slice = slice(start - aft_length, full_length) if start > aft_length else slice(0, full_length - (aft_length - start))
+        elif ',' in args.trim:
+            pos = args.trim.split(',')
+            if len(pos) != 2:
+                raise RuntimeError("--trim must assign a start and stop position")
+            self.pre_slice(int(pos[0]), int(pos[1]))
         else:
-            self.pre_slice = slice(self.trim, len(self.full) - self.trim) 
+            self.pre_slice = slice(0, full_length)
        
         self.barcode_length = stop - start
         
-        if start - self.alignment_flank < self.pre_slice.start:
-            raise ValueError("Insufficient forward flank ({:} nt) on Master Read to accommodate `alignment_flank` ({:} nt) & `trim` ({:} nt).".format(start, self.alignment_flank, self.trim))
-        if stop + self.alignment_flank > self.pre_slice.stop:
-            raise ValueError("Insufficient aft flank ({:} nt) on Master Read to accommodate `alignment_flank` ({:} nt) & `trim` ({:} nt).".format(aft_length, self.alignment_flank, self.trim))
-        
-        # MAYBE DELETE SOMETIME!
-        assert len(self.full[self.pre_slice]) >= 2*self.alignment_flank + self.barcode_length 
-        if args.symmetric_flanks:
-            assert start - self.pre_slice.start == self.pre_slice.stop - stop, 'symmetric_flanks failed.' 
-        ######
-
         self.c_ref = self.ref.encode('ascii')
         self.c_train = self.c_ref[:self.training_flank] + self.c_ref[-self.training_flank:]
-        self.max_score = int(nw.char_score(self.c_ref, self.c_ref))
+        self.max_score = sw.char_score(self.c_ref, self.c_ref)
         self.min_align_score = args.min_align_score
         self.min_int_score = int(np.ceil(args.min_align_score*self.max_score))
         
-    def find_start_stop(self, bytes seq): 
-        """score=score of [match, mismatch, gap_start, gap_extend]"""
-        cdef:
-            bytes seq_align
-            bytes ref_align
-            int _score
-        seq_align, ref_align, _score = nw.char_align(seq, self.c_ref) 
-        cdef:
-            int ref_start = ref_align.index(c_N)
-            int ref_stop = ref_align.rindex(c_N) + 1
-            int head_gaps = seq_align[0:ref_start].count(c_gap)
-            int barcode_gaps = seq_align[ref_start:ref_stop].count(c_gap)
-        return ref_start - head_gaps, ref_stop - head_gaps - barcode_gaps
-
-    def repair_N(self, bytes c_seq):
-        seq_align, ref_align, _score = nw.char_align(c_seq, self.c_ref)
-        return bytes(bytearray([s if (s != o_N or r == o_gap) else r for s, r in zip(seq_align, ref_align) if s != o_gap]))
-
     def iter_fastq(self, input_fastq_iter, filenames):
-        scores = np.zeros(self.max_score+1, dtype=int)
-        #mut_tally = np.zeros((6, 5, self.max_PHRED), dtype=int)
+        scores = pd.Series(np.zeros(self.max_score+1, dtype=int), index=pd.Index(np.linspace(0,1,num=self.max_score+1), name='Score'), name='Occurrences')
+        bad_barcode_lengths = pd.Series(np.zeros(self.MAX_READ_LENGTH, dtype=int), index=pd.Index(np.arange(self.MAX_READ_LENGTH), name='Length'), name='Occurrences')
         cdef:
             int BL = self.barcode_length
             int TF = self.training_flank
@@ -233,15 +205,12 @@ class MasterRead(object):
             int score
         
             int Filtered = 0
-            int Unaligned = 0
-            int Wrong_Barcode_Length = 0
             int Residual_N = 0
             int Insufficient_Flank = 0
             int Clustered = 0
-            long [:] score_view = scores
-            #long [:, :, :] mut_tally_view = mut_tally
+            long [:] score_view = scores.values
+            long [:] bc_length_view = bad_barcode_lengths.values
             int qc_i
-        
         with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(filenames[2], 'wb', makedirs=True) as unaligned_file:
             for header, DNA, QC in input_fastq_iter: 
                 DNA = DNA[self.pre_slice]
@@ -251,16 +220,15 @@ class MasterRead(object):
                 if ILLUMINA_FAILED_FILTER in header:
                     Filtered += 1
                     continue
-                start, stop = self.find_start_stop(DNA)
+                start, stop = sw.find_N_start_stop(DNA, self.c_ref)
                 DNA_scoring = DNA[start - self.alignment_flank:stop + self.alignment_flank]
-                score = nw.char_score(DNA_scoring, self.c_ref)
-                scores[score] += 1
+                score = sw.char_score(DNA_scoring, self.c_ref)
+                score_view[score] += 1
                 if score < self.min_int_score:
-                    Unaligned += 1
                     unaligned_file.write(DNA+END)
                     continue
                 if abs((stop - start) - BL) > self.allowable_deviation:
-                    Wrong_Barcode_Length += 1
+                    bc_length_view[stop - start] += 1
                     continue
                 T_s1 = slice(start - TF, start)
                 T_s2 = slice(stop, stop+TF)
@@ -269,16 +237,9 @@ class MasterRead(object):
                     tQC = QC[T_s1]+QC[T_s2]
                     if c_N not in training_DNA:
                         training_file.write(header+training_DNA+LINE_3+tQC+END)
-                    # Tally mutations -- less effective than DADA2 training
-                    # seq_align, ref_align, _score = nw.char_align(training_DNA, self.c_train)
-                    # qc_i = 0
-                    # for s, r in zip(seq_align, ref_align):
-                    #     if s != char_gap:
-                    #         mut_tally_view[DNA_to_int[r], DNA_to_int[s], tQC[qc_i] - 32] += 1
-                    #         qc_i += 1
         
                 if c_N in DNA:
-                    DNA = self.repair_N(DNA)
+                    DNA = sw.fill_Ns(DNA, self.c_ref)
                 cluster_DNA = DNA[start - CF:start+BL+CF]
                 if c_N in cluster_DNA:
                     Residual_N += 1
@@ -288,10 +249,10 @@ class MasterRead(object):
                 else:
                     Clustered += 1
                     cQC = QC[start-CF:start+BL+CF]
-                    #assert len(cQC) == len(cluster_DNA), '{:}\n{:}'.format(cluster_DNA, cQC)
                     cluster_file.write(header+cluster_DNA+LINE_3+cQC+END)
-        return pd.Series([Filtered,   Unaligned,   Wrong_Barcode_Length,   Residual_N,   Insufficient_Flank,   Clustered], 
-         index=pd.Index(self.possible_outcomes)), scores #, mut_tally
+        statistics = pd.Series([Filtered,   scores[:self.min_int_score].sum(),   bad_barcode_lengths.sum(),   Residual_N,   Insufficient_Flank,   Clustered], 
+                            index=pd.Index(self.possible_outcomes))
+        return statistics, scores, bad_barcode_lengths
 
 import regex as re
 class Mismatcher(object):
