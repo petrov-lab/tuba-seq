@@ -211,6 +211,8 @@ class MasterRead(object):
             long [:] score_view = scores.values
             long [:] bc_length_view = bad_barcode_lengths.values
             int qc_i
+            int unaligned_counter = 0
+
         with smart_open(filenames[0], 'wb', makedirs=True) as training_file, smart_open(filenames[1], 'wb', makedirs=True) as cluster_file, smart_open(filenames[2], 'wb', makedirs=True) as unaligned_file:
             for header, DNA, QC in input_fastq_iter: 
                 DNA = DNA[self.pre_slice]
@@ -225,6 +227,7 @@ class MasterRead(object):
                 score = sw.char_score(DNA_scoring, self.c_ref)
                 score_view[score] += 1
                 if score < self.min_int_score:
+                    unaligned_counter += 1
                     unaligned_file.write(DNA+END)
                     continue
                 if abs((stop - start) - BL) > self.allowable_deviation:
@@ -233,10 +236,10 @@ class MasterRead(object):
                 T_s1 = slice(start - TF, start)
                 T_s2 = slice(stop, stop+TF)
                 training_DNA = DNA[T_s1]+DNA[T_s2]
-                if len(training_DNA) == 2*TF:
+                if len(training_DNA) == 2*TF and c_N not in training_DNA:
                     tQC = QC[T_s1]+QC[T_s2]
-                    if c_N not in training_DNA:
-                        training_file.write(header+training_DNA+LINE_3+tQC+END)
+                    assert len(tQC) == len(training_DNA), '{:} {:} {:} {:}'.format(len(tQC), len(training_DNA), tQC, training_DNA)
+                    training_file.write(header+training_DNA+LINE_3+tQC+END)
         
                 if c_N in DNA:
                     DNA = sw.fill_Ns(DNA, self.c_ref)
@@ -250,7 +253,7 @@ class MasterRead(object):
                     Clustered += 1
                     cQC = QC[start-CF:start+BL+CF]
                     cluster_file.write(header+cluster_DNA+LINE_3+cQC+END)
-        statistics = pd.Series([Filtered,   scores[:self.min_int_score].sum(),   bad_barcode_lengths.sum(),   Residual_N,   Insufficient_Flank,   Clustered], 
+        statistics = pd.Series([Filtered,   scores.iloc[:self.min_int_score].sum(),   bad_barcode_lengths.sum(),   Residual_N,   Insufficient_Flank,   Clustered], 
                             index=pd.Index(self.possible_outcomes))
         return statistics, scores, bad_barcode_lengths
 
