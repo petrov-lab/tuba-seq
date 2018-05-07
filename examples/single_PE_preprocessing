@@ -5,15 +5,13 @@ FILE=$1
 TUBA_PATH="$HOME/tuba-seq/bin"      # PATH to tuba-seq executables
 
 DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
-FORWARD_READS="forward_reads"
-REVERSE_READS="reverse_reads"
-MERGE_DIR='merged_reads'            # Directory name for merged forward/reverse reads.
+INPUT_DIR='forward_reads'            # Directory name for merged forward/reverse reads.
 
 MEMORY="48G"
 
 if [ -z "$1" ]; then    # If this script isn't given a 1st positional argument, then
- FILES=`ls $FORWARD_READS`  # select a file using the SLURM array task ID.
- echo "Found ${#FILES[@]} FASTQ files in $FORWARD_READS."
+ FILES=(`ls $INPUT_DIR`)  # select a file using the SLURM array task ID.
+ echo "Found ${#FILES[@]} FASTQ files in $MERGE_DIR."
  echo "Using SLURM ID #$SLURM_ARRAY_TASK_ID."
  FILE=${FILES[$SLURM_ARRAY_TASK_ID]}
 fi
@@ -24,7 +22,7 @@ echo "Processing $SAMPLE"
 cd $DATA_DIR;
 # Main Functions
 set -ex 
-$TUBA_PATH/PEAR.py --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
+$TUBA_PATH/PEAR.py -p --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
 $TUBA_PATH/preprocess.py -p --search_blast -d $MERGE_DIR/$SAMPLE.fastq;
 set +x
 
