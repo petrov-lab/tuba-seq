@@ -11,7 +11,7 @@ MERGE_DIR='merged_reads'            # Directory name for merged forward/reverse 
 
 MEMORY="48G"
 
-if ! [ -z "$1" ]; then    # If this script isn't given a 1st positional argument, then
+if [ -z "$1" ]; then    # If this script isn't given a 1st positional argument, then
  FILES=`ls $FORWARD_READS`  # select a file using the SLURM array task ID.
  echo "Found ${#FILES[@]} FASTQ files in $FORWARD_READS."
  echo "Using SLURM ID #$SLURM_ARRAY_TASK_ID."
