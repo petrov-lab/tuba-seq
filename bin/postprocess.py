@@ -97,7 +97,6 @@ This function combines the loading, annotation, and merging steps to permit para
     barcode_length = stop - start
         # First, annotate all sgRNAs/barcodes that are exact matches to an sgID in the exact location
     df['ID'] = df['sequence'].str.slice(start=flanking_seq_length, stop=flanking_seq_length+sgID_length)
-    #df['target'] = sgID_map.loc[df['ID']].values
     df['target'] = sgID_map.reindex(df['ID']).values
     df['barcode'] = df['sequence'].str.slice(start=flanking_seq_length+sgID_length, stop=flanking_seq_length+barcode_length)
         # Then, salvage the remaining tumors by permitting inexact matches and/or Indels
@@ -116,7 +115,7 @@ This function combines the loading, annotation, and merging steps to permit para
                 merges=len(df) - len(merged)) 
 
 Files = list(args.directory.glob(file_glob))
-clustered_samples = map(load_clusters_annotate_sgRNAs_and_merge, Files)
+clustered_samples = list(map(load_clusters_annotate_sgRNAs_and_merge, Files))
 
 # Consolidate output based on sample names into a single file
 combined = pd.concat({dic['Sample']:dic.pop('clusters') for dic in clustered_samples}, names=['Sample'])
@@ -124,20 +123,7 @@ Log("Completed consolidation, sgID annotation & cluster merging.")
 
 combined.to_csv(args.out_file+'.gz', compression='gzip')
 
-# Check Master Read Inferences
 data = pd.DataFrame(clustered_samples).set_index("Sample")
-#master_reads = data.pop('master_read').str.replace("N", '.')
-#MR_counts = master_reads.value_counts()
-#if len(MR_counts) == 1:
-#    Log("All master reads matched ({:})".format(MR_counts.values[0]))
-#else:
-#    from warnings import warn
-#    main_read = MR_counts.idxmax()
-#    s = "Master reads did not all match! Used {:} {:} times, and observed the following exceptions:\n".format(main_read, MR_counts.max())
-#    s += master_reads.loc[master_reads != main_read].to_string()
-#    warn(s)
-#    Log(s)
-
 
 ######################### Summary Statistics ###################################
 tallies = data.sum()

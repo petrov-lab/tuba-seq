@@ -1,26 +1,30 @@
 #!/bin/bash
-set -ex 
 
-FILE="IW3098.fastq.gz"       #$1
+FILE=$1
 
 TUBA_PATH="$HOME/tuba-seq/bin"      # PATH to tuba-seq executables
-DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
-MERGE_DIR='merged_reads'            # Directory name for merged forward/reverse reads.
 
+DATA_DIR=`pwd`                      # Directory containing the fastq files (defaults to current working directory)
 FORWARD_READS="forward_reads"
 REVERSE_READS="reverse_reads"
-MEMORY="4G"
+MERGE_DIR='merged_reads'            # Directory name for merged forward/reverse reads.
 
-TALLY_DIR="mutation_tallies"
+MEMORY="48G"
+
+if ! [ -z ${1+x} ]; then    # If this script isn't given a 1st positional argument, then
+ FILES=`ls $FORWARD_READS`  # select a file using the SLURM array task ID.
+ FILE=${FILES[$SLURM_ARRAY_TASK_ID]}
+fi
+
+SAMPLE=${FILE%.fastq*} # The sample name is this argument sans the fastq extension
+echo "Processing $SAMPLE"
 
 cd $DATA_DIR;
-SAMPLE=${FILE%.fastq*}
-echo "Processing $FILE"
-$TUBA_PATH/PEAR.py --single --uncompressed --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
-$TUBA_PATH/preprocess.py -p --search_blast --single -d $MERGE_DIR/$SAMPLE.fastq;
-
+# Main Functions
+set -ex 
+$TUBA_PATH/PEAR.py --memory=$MEMORY -m $MERGE_DIR $FORWARD_READS/$FILE $REVERSE_READS/$FILE;
+$TUBA_PATH/preprocess.py -p --search_blast -d $MERGE_DIR/$SAMPLE.fastq;
 set +x
-echo "All preprocessing completed. If the error training output stats and the fraction of cluster-able reads look good, then you are ready for clustering.";
-echo "This task ought to be broadcasted onto a cluster.";
-echo "See DADA2_clustering.R for details."
+
+echo "Preprocessing completed."
 

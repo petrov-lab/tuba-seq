@@ -1,9 +1,9 @@
 #!/bin/bash
-set -ex
 
 TUBA_PATH=$HOME/tuba-seq
 sgRNA_file=$TUBA_PATH/sgRNA_info.csv
 
+set -ex
 $TUBA_PATH/bin/postprocess.py -p -v $sgRNA_file;
 $TUBA_PATH/bin/final_processing.py -v -p --find_order --report;
 
