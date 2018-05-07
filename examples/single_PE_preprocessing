@@ -13,6 +13,8 @@ MEMORY="48G"
 
 if ! [ -z ${1+x} ]; then    # If this script isn't given a 1st positional argument, then
  FILES=`ls $FORWARD_READS`  # select a file using the SLURM array task ID.
+ echo "Found ${#FILES[@]} FASTQ files in $FORWARD_READS."
+ echo "Using SLURM ID #$SLURM_ARRAY_TASK_ID."
  FILE=${FILES[$SLURM_ARRAY_TASK_ID]}
 fi
 
