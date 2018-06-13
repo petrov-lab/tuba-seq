@@ -49,7 +49,7 @@ def percentile_plot(data, ax, order,
         percentiles = df.index.get_level_values('Percentile').values.tolist()
         ax.scatter(X[:-1], len(percentiles)*[y], c=inert_colors, label='Legend', **dot_kwargs)
         for x, p in zip(X, percentiles):
-            ax.text(x, y, '{:g}  '.format(p), ha='center', va='top', rotation=90, size=legend_text_size)
+            ax.text(x, y, '{:g}  '.format(float(p)), ha='center', va='top', rotation=90, size=legend_text_size)
         ax.text(X[-1], y,'Percentile', va='center', ha='left', size=legend_text_size)
     return ax
 
