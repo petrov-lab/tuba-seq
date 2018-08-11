@@ -30,6 +30,11 @@ Executable scripts, by virtue of their shebang, assume python3 and R are within 
 git clone --recursive https://github.com/petrov-lab/tuba-seq.git  
 cd tuba-seq
 
+# Compile the Striped Smith-Waterman Read Alignment Library 
+cd Striped-Smith-Waterman-Library
+make
+cd ..
+
 # Install the tuba-seq Python package--use pip to install requirements.  
 pip3 install .
 
