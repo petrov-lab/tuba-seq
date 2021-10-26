@@ -31,9 +31,9 @@ git clone --recursive https://github.com/petrov-lab/tuba-seq.git
 cd tuba-seq
 
 # Compile the Striped Smith-Waterman Read Alignment Library 
-cd Striped-Smith-Waterman-Library
+cd Complete-Striped-Smith-Waterman-Library/src
 make
-cd ..
+cd ../..
 
 # Install the tuba-seq Python package--use pip to install requirements.  
 pip3 install .
