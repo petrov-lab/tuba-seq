@@ -94,6 +94,29 @@ class SW(object):
         barcode_gaps = query_align[N_start:N_stop].count(b'-')
         return query_begin + N_start - head_gaps, query_begin + N_stop - head_gaps - barcode_gaps
 
+    def ClonTracer_start(self, char_query, char_reference):
+        query_align, ref_align = self.char_align(char_query, char_reference)
+        return self.res.contents.nQryBeg
+
+    def fill_Ns(self, char_query, char_reference):
+        query_align, ref_align = self.char_align(char_query, char_reference)
+        middle = bytes(bytearray([q if (q != o_N or r == o_gap) else r for q, r in zip(query_align, ref_align) if q != o_gap]))
+        contents = self.res.contents
+        out = char_query[:contents.nQryBeg] + middle + char_query[contents.nQryEnd+1:]
+        return out
+
+    def align(self, query, reference):
+        return self.char_align(query.encode('ascii'), reference.encode('ascii'))
+
+    def char_score(self, char_query, char_reference):
+        nQuery = self.nEle2Int[list(char_query)].ctypes.data_as(ct.POINTER(ct.c_int8))
+        self.qProfile = ssw.ssw_init(nQuery, ct.c_int32(len(char_query)), self.mat, len(self.lEle), 2)
+        nMaskLen = len(char_query) // 2 if len(char_query) > 30 else 15
+        nFlag = 0
+        nReference = self.nEle2Int[list(char_reference)].ctypes.data_as(ct.POINTER(ct.c_int8))
+        self.res = ssw.ssw_align(self.qProfile, nReference, ct.c_int32(len(char_reference)), self.gap_open, self.gap_extend, nFlag, 0, 0, nMaskLen)
+        return self.res.contents.nScore
+
     def fill_Ns(self, char_query, char_reference):
         query_align, ref_align = self.char_align(char_query, char_reference)
         middle = bytes(bytearray([q if (q != o_N or r == o_gap) else r for q, r in zip(query_align, ref_align) if q != o_gap]))

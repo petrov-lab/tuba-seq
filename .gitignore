@@ -9,6 +9,7 @@ examples/training/*
 examples/mutations/*
 Complete-Striped-Smith-Waterman-Library/src/*.so
 Complete-Striped-Smith-Waterman-Library/src/*.o
+Complete-Striped-Smith-Waterman-Library/src/*
 
 
 # Extras #

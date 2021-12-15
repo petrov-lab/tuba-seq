@@ -37,9 +37,11 @@ parser.add_argument('-k',  '--skip', action='store_true', help='Skip files that 
 parser.add_argument('-a', '--allowable_deviation', type=int, default=4, help="Length of Indel to tolerate before discarding reads.")
 parser.add_argument('--alignment_flank', type=int, default=22, help='# of bases flanking the degenerate region to be used to score the quality of the read.')
 parser.add_argument('--training_flank', type=int, default=22, help='# of bases flanking the degenerate region to be used to develop the DADA2 error model.')
+parser.add_argument('--cluster_flank', type=int, default=22, help='# of bases flanking the degenerate region to be used for clustering.')
 parser.add_argument('-M', '--min_align_score', type=float, default=0.65, help='Minimum alignment score needed to keep read, Range [0, 1).')
 parser.add_argument('--compression', default='bz2', choices=['bz2', 'gz', 'lzma', 'none'], help='Compression algorithm for saved file.')
 parser.add_argument('--trim', default='symmetric', help='Nucleotides to immediately trim from the amplicon reads before searching for the barcode--trimming accelerates runtime. Can be two integers--a start and stop position, `none`, or `symmetric`, which truncates the read such that the barcode is exactly in the middle of the read.')
+parser.add_argument('--ClonTracer', action='store_true', help="Process Single-End read cloneTracer data w/o 5' flank of barcode")
 ###############################################################################
 args = parser.parse_args()
 Log = logPrint(args)
@@ -106,7 +108,7 @@ def process_fastq(ix):
                 except Exception as e: 
                     Log("Could not derep {:}:\n{:}".format(f, e), True)
                 else:
-                 os.remove(f)
+                    os.remove(f)
     return outcomes, scores, bad_lengths
 
 samples = [os.path.basename(input_fastq.partition(fastq_ext)[0]) for input_fastq in input_fastqs]

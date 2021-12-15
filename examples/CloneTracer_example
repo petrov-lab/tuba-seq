@@ -1,0 +1,17 @@
+#!/bin/bash
+
+TUBA_PATH="$HOME/tuba-seq/bin"
+DATA_DIR=`pwd` 
+MASTER_READ="..............................AGCAGAGCTACGCACTCTATGCTAGTGCTAG"
+set -ex 
+
+$TUBA_PATH/preprocess.py -p -d $DATA_DIR/original/ --master_read $MASTER_READ --trim=none --alignment_flank 999 --ClonTracer;
+$TUBA_PATH/DADA2_error_training.R $DATA_DIR/training/ >> DADA2_error_training.LOG;
+
+for f in preprocessed/*.rds; 
+do
+	$TUBA_PATH/DADA2_clustering.R $f; 
+done
+
+set +x
+

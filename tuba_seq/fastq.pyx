@@ -173,6 +173,10 @@ class MasterRead(object):
         stop = self.full.rindex('N') + 1
         self.ref = self.full[start - self.alignment_flank:stop+self.alignment_flank]
         
+        self.ClonTracer = args.ClonTracer
+        if self.ClonTracer:
+            self.ref = self.full[stop:]
+
         aft_length = len(self.full) - stop
         full_length = len(self.full)
 
@@ -191,9 +195,16 @@ class MasterRead(object):
         self.c_ref = self.ref.encode('ascii')
         self.c_train = self.c_ref[:self.training_flank] + self.c_ref[-self.training_flank:]
         self.max_score = sw.char_score(self.c_ref, self.c_ref)
+        
+        if self.ClonTracer:
+            c_DNA = self.full.encode('ascii')
+            start = sw.ClonTracer_start(c_DNA, self.c_ref)
+            self.barcode_length = start
+            self.max_score = sw.char_score(c_DNA, self.c_ref)
+            
         self.min_align_score = args.min_align_score
         self.min_int_score = int(np.ceil(args.min_align_score*self.max_score))
-        
+
     def iter_fastq(self, input_fastq_iter, filenames):
         scores = pd.Series(np.zeros(self.max_score+1, dtype=int), index=pd.Index(np.linspace(0,1,num=self.max_score+1), name='Score'), name='Occurrences')
         bad_barcode_lengths = pd.Series(np.zeros(self.MAX_READ_LENGTH, dtype=int), index=pd.Index(np.arange(self.MAX_READ_LENGTH), name='Length'), name='Occurrences')
@@ -230,6 +241,17 @@ class MasterRead(object):
                     unaligned_counter += 1
                     unaligned_file.write(DNA+END)
                     continue
+                
+                if self.ClonTracer:
+                    start = sw.ClonTracer_start(DNA, self.c_ref)
+                    if start != self.barcode_length or c_N in DNA:
+                        bc_length_view[start] += 1
+                        continue
+                    training_file.write(header+DNA[start:]+LINE_3+QC[start:]+END)
+                    cluster_file.write( header+DNA[:start]+LINE_3+QC[:start]+END)
+                    Clustered += 1
+                    continue
+                
                 if abs((stop - start) - BL) > self.allowable_deviation:
                     bc_length_view[stop - start] += 1
                     continue
