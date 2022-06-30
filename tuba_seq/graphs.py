@@ -11,6 +11,27 @@ def percentile_plot(data, ax, order,
     ebar_kwargs=dict(ecolor='#404040', elinewidth=0.5, ls='none', capsize=400, zorder=2),
     xtick_kwargs=dict(rotation=90, style='italic', size=20, ha='center'),
     baseline_kwargs=dict(color='k', ls='dotted', lw=1)):
+    """percentile_plot(data, ax, order, **kwargs) -> matplotlib.axes object to create Figure 5a (in Nat Methods paper) style plots.
+    
+data : pandas.DataFrame object of data to plot
+    This DataFrame is generally created by applying the tools.percentiles function to the Tumor_Numbers output DataFrame, after this output has been 
+    normalized using tools.inert_normalize. Confidence Intervals are created using bootstrap.sample. Data must have several features:
+       Percentile (MultiIndex Level) ~ Numeric of each percentile Calculated (e.g. 50, 60, 70, 80, 90, 95, 99, ...)
+       target (MultiIndex Level)     ~ Str of gene tageted (e.g. 'p53', 'Setd2', ...)
+       true (column)                 ~ Float of observed percentile value  
+       low (column)                  ~ Float of low bound of Confidence Interval
+       high (column)                 ~ Float of upper bound of Confidence Interval
+
+ax : matplotlib.axes containing graph
+
+order : Iterable of Str
+    Left->right order in which the various sgRNA 'target' genes are plotted (analogus to order param in seaborn module)
+
+baseline : bool
+    Plot a line at 1?
+
+Other parameters are fed into seaborn and matplotlib ploting functions. Probably better to edit by code inspection.  
+"""
 
     if hue_map is None:     # Generate unique hues for each target, if not provided.
         hue_map = sns.husl_palette(n_colors=len(order), s=1, l=inert_darkness) 
